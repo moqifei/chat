@@ -103,6 +103,7 @@ const (
 	AccountRegister = iota
 	EmailRegister
 	PhoneRegister
+	ADRegister
 )
 
 const (
@@ -116,6 +117,7 @@ const (
 	CredentialAccount = iota
 	CredentialPhone
 	CredentialEmail
+	CredentialAD
 )
 
 // verifyCode use

@@ -128,6 +128,26 @@ type Chat struct {
 		Secret string `mapstructure:"secret"`
 	} `mapstructure:"liveKit"`
 	AllowRegister bool `mapstructure:"allowRegister"`
+	AD            AD   `mapstructure:"ad"`
+}
+
+type AD struct {
+	Enable              bool   `mapstructure:"enable"`
+	ServerURL           string `mapstructure:"serverURL"`
+	BaseDN              string `mapstructure:"baseDN"`
+	UserDN              string `mapstructure:"userDN"`
+	BindDN              string `mapstructure:"bindDN"`
+	BindPassword        string `mapstructure:"bindPassword"`
+	UserFilter          string `mapstructure:"userFilter"`
+	UsernameAttribute   string `mapstructure:"usernameAttribute"`
+	EmailAttribute      string `mapstructure:"emailAttribute"`
+	DisplayNameAttribute string `mapstructure:"displayNameAttribute"`
+	InsecureSkipVerify  bool   `mapstructure:"insecureSkipVerify"`
+	AutoCreateUser      bool   `mapstructure:"autoCreateUser"`
+	Sync                struct {
+		Enable bool   `mapstructure:"enable"` // Enable daily AD organization sync
+		Cron   string `mapstructure:"cron"`   // Cron expression, e.g. "0 2 * * *" (daily at 2 AM)
+	} `mapstructure:"sync"`
 }
 
 type Bot struct {

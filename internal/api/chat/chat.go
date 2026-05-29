@@ -15,6 +15,7 @@
 package chat
 
 import (
+	"errors"
 	"io"
 	"time"
 
@@ -192,6 +193,73 @@ func (o *Api) Login(c *gin.Context) {
 	})
 }
 
+func (o *Api) ADLogin(c *gin.Context) {
+	req, err := a2r.ParseRequest[apistruct.ADLoginReq](c)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	ip, err := o.GetClientIP(c)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	// Use the standard Login RPC with AD username as the account identifier.
+	// The RPC handler will detect AD credential type and authenticate via LDAP.
+	loginReq := &chatpb.LoginReq{
+		Account:  req.Username,
+		Password: req.Password,
+		Platform: req.Platform,
+		DeviceID: req.DeviceID,
+		Ip:       ip,
+	}
+	resp, err := o.chatClient.Login(c, loginReq)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	adminToken, err := o.imApiCaller.ImAdminTokenWithDefaultAdmin(c)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	apiCtx := mctx.WithApiToken(c, adminToken)
+
+	// Try to obtain the IM token first. If the user hasn't been registered
+	// in OpenIM yet (e.g. first AD login), register them and retry.
+	imToken, err := o.imApiCaller.GetUserToken(apiCtx, resp.UserID, req.Platform)
+	if errors.Is(err, errs.ErrRecordNotFound) {
+		// Query the nickname that was stored in chat DB during AD auto-creation.
+		nickname := req.Username
+		if fullInfoResp, infoErr := o.chatClient.FindUserFullInfo(c, &chatpb.FindUserFullInfoReq{
+			UserIDs: []string{resp.UserID},
+		}); infoErr == nil && len(fullInfoResp.Users) > 0 {
+			if fullInfoResp.Users[0].Nickname != "" {
+				nickname = fullInfoResp.Users[0].Nickname
+			}
+		}
+		userInfo := &sdkws.UserInfo{
+			UserID:     resp.UserID,
+			Nickname:   nickname,
+			CreateTime: time.Now().UnixMilli(),
+		}
+		if regErr := o.imApiCaller.RegisterUser(apiCtx, []*sdkws.UserInfo{userInfo}); regErr != nil {
+			apiresp.GinError(c, regErr)
+			return
+		}
+		imToken, err = o.imApiCaller.GetUserToken(apiCtx, resp.UserID, req.Platform)
+	}
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	apiresp.GinSuccess(c, &apistruct.LoginResp{
+		ImToken:   imToken,
+		UserID:    resp.UserID,
+		ChatToken: resp.ChatToken,
+	})
+}
+
 func (o *Api) ResetPassword(c *gin.Context) {
 	a2r.Call(c, chatpb.ChatClient.ResetPassword, o.chatClient)
 }
@@ -355,4 +423,22 @@ func (o *Api) LatestApplicationVersion(c *gin.Context) {
 
 func (o *Api) PageApplicationVersion(c *gin.Context) {
 	a2r.Call(c, admin.AdminClient.PageApplicationVersion, o.adminClient)
+}
+
+// ################## AD ORGANIZATION ##################
+
+func (o *Api) GetADDepartmentList(c *gin.Context) {
+	a2r.Call(c, chatpb.ChatClient.GetADDepartmentList, o.chatClient)
+}
+
+func (o *Api) GetADDepartmentMembers(c *gin.Context) {
+	a2r.Call(c, chatpb.ChatClient.GetADDepartmentMembers, o.chatClient)
+}
+
+func (o *Api) SearchADMembers(c *gin.Context) {
+	a2r.Call(c, chatpb.ChatClient.SearchADMembers, o.chatClient)
+}
+
+func (o *Api) SyncADOrganization(c *gin.Context) {
+	a2r.Call(c, chatpb.ChatClient.SyncADOrganization, o.chatClient)
 }

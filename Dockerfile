@@ -1,5 +1,5 @@
-# Use Go 1.21 Alpine as the base image for building the application
-FROM golang:1.22-alpine AS builder
+# Use Go 1.25 Alpine as the base image for building the application
+FROM golang:1.25-alpine AS builder
 
 # Define the base directory for the application as an environment variable
 ENV SERVER_DIR=/openim-chat
@@ -7,8 +7,13 @@ ENV SERVER_DIR=/openim-chat
 # Set the working directory inside the container based on the environment variable
 WORKDIR $SERVER_DIR
 
+# Install git, required by go mod download for fetching dependencies
+RUN apk add --no-cache git
+
 # Set the Go proxy to improve dependency resolution speed
-# ENV GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+# Skip checksum verification to speed up downloads in air-gapped environments
+ENV GOSUMDB=off
 
 COPY go.mod go.sum ./
 
@@ -25,10 +30,14 @@ RUN go install github.com/magefile/mage@v1.15.0
 RUN mage build
 
 # Using Alpine Linux with Go environment for the final image
-FROM golang:1.22-alpine
+FROM golang:1.25-alpine
 
-# Install necessary packages, such as bash
-RUN apk add --no-cache bash
+# Install necessary packages, such as bash and git
+RUN apk add --no-cache bash git
+
+# Set Go proxy and skip checksum verification
+ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+ENV GOSUMDB=off
 
 # Set the environment and work directory
 ENV SERVER_DIR=/openim-chat
@@ -46,7 +55,7 @@ COPY --from=builder $SERVER_DIR/start-config.yml $SERVER_DIR/
 COPY --from=builder $SERVER_DIR/go.mod $SERVER_DIR/
 COPY --from=builder $SERVER_DIR/go.sum $SERVER_DIR/
 
-RUN go get github.com/openimsdk/gomake@v0.0.14-alpha.5
+RUN go get github.com/openimsdk/gomake@v0.0.15-alpha.11
 
 # Set the command to run when the container starts
 ENTRYPOINT ["sh", "-c", "mage start && tail -f /dev/null"]

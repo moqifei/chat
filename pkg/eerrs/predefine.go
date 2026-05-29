@@ -33,4 +33,8 @@ var (
 	ErrEmailAlreadyRegister     = errs.NewCodeError(20014, "EmailAlreadyRegister")
 
 	ErrTokenNotExist = errs.NewCodeError(20101, "ErrTokenNotExist")
+
+	ErrADDisabled    = errs.NewCodeError(20201, "ADAuthenticationDisabled")
+	ErrADAuthFailed  = errs.NewCodeError(20202, "ADAuthenticationFailed")
+	ErrADUserNotExist = errs.NewCodeError(20203, "ADUserNotFound")
 )

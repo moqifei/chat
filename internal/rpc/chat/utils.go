@@ -63,6 +63,12 @@ func BuildCredentialPhone(areaCode, phone string) string {
 	return areaCode + " " + phone
 }
 
+// BuildCredentialAD returns the credential account identifier for AD users.
+// Prefix "ad:" ensures uniqueness and helps distinguish AD credentials from regular accounts.
+func BuildCredentialAD(username string) string {
+	return "ad:" + username
+}
+
 func (o *chatSvr) checkRegisterInfo(ctx context.Context, user *chat.RegisterUserInfo, isAdmin bool) error {
 	if user == nil {
 		return errs.ErrArgs.WrapMsg("user is nil")

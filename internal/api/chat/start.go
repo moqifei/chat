@@ -131,6 +131,7 @@ func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	account.POST("/code/verify", chat.VerifyCode)                        // Verify the verification code
 	account.POST("/register", mw.CheckAdminOrNil, chat.RegisterUser)     // Register
 	account.POST("/login", chat.Login)                                   // Login
+	account.POST("/login/ad", chat.ADLogin)                              // Microsoft AD login
 	account.POST("/password/reset", chat.ResetPassword)                  // Forgot password
 	account.POST("/password/change", mw.CheckToken, chat.ChangePassword) // Change password
 
@@ -153,4 +154,10 @@ func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	applicationGroup.POST("/page_versions", chat.PageApplicationVersion)
 
 	router.Group("/callback").POST("/open_im", chat.OpenIMCallback) // Callback
+
+	ad := router.Group("/ad", mw.CheckToken)
+	ad.POST("/department/list", chat.GetADDepartmentList)
+	ad.POST("/department/members", chat.GetADDepartmentMembers)
+	ad.POST("/member/search", chat.SearchADMembers)
+	ad.POST("/sync", chat.SyncADOrganization)
 }

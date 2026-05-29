@@ -28,6 +28,13 @@ type LoginResp struct {
 	UserID    string `json:"userID"`
 }
 
+type ADLoginReq struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Platform int32  `json:"platform"`
+	DeviceID string `json:"deviceID"`
+}
+
 type UpdateUserInfoResp struct{}
 
 type CallbackAfterSendSingleMsgReq struct {

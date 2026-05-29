@@ -145,6 +145,10 @@ func (x *LoginReq) Check() error {
 	if x.Platform < constantpb.IOSPlatformID || x.Platform > constantpb.HarmonyOSPlatformID {
 		return errs.ErrArgs.WrapMsg("platform is invalid")
 	}
+	// If Account is provided (e.g., AD/LDAP login), no need to validate email/phone.
+	if x.Account != "" {
+		return nil
+	}
 	if x.Email == "" {
 		if x.AreaCode == "" {
 			return errs.ErrArgs.WrapMsg("AreaCode is empty")

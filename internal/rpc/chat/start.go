@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openimsdk/chat/pkg/common/ad"
 	"github.com/openimsdk/chat/pkg/common/constant"
 	"github.com/openimsdk/chat/pkg/common/mctx"
 	"github.com/openimsdk/chat/pkg/common/rtc"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/openimsdk/chat/pkg/common/config"
 	"github.com/openimsdk/chat/pkg/common/db/database"
+	"github.com/openimsdk/chat/pkg/common/imapi"
 	"github.com/openimsdk/chat/pkg/email"
 	chatClient "github.com/openimsdk/chat/pkg/rpclient/chat"
 	"github.com/openimsdk/chat/pkg/sms"
@@ -74,6 +76,27 @@ func Start(ctx context.Context, config *Config, client discovery.SvcDiscoveryReg
 	}
 	srv.Livekit = rtc.NewLiveKit(config.RpcConfig.LiveKit.Key, config.RpcConfig.LiveKit.Secret, config.RpcConfig.LiveKit.URL)
 	srv.AllowRegister = config.RpcConfig.AllowRegister
+	srv.IMCaller = imapi.New(config.Share.OpenIM.ApiURL, config.Share.OpenIM.Secret, config.Share.OpenIM.AdminUserID)
+	// Initialize Microsoft AD client if enabled
+	srv.ADConfig = config.RpcConfig.AD
+	if srv.ADConfig.Enable {
+		srv.ADClient = ad.New(ad.Config{
+			Enable:              srv.ADConfig.Enable,
+			ServerURL:           srv.ADConfig.ServerURL,
+			BaseDN:              srv.ADConfig.BaseDN,
+			UserDN:              srv.ADConfig.UserDN,
+			BindDN:              srv.ADConfig.BindDN,
+			BindPassword:        srv.ADConfig.BindPassword,
+			UserFilter:          srv.ADConfig.UserFilter,
+			UsernameAttribute:   srv.ADConfig.UsernameAttribute,
+			EmailAttribute:      srv.ADConfig.EmailAttribute,
+			DisplayNameAttribute: srv.ADConfig.DisplayNameAttribute,
+			InsecureSkipVerify:  srv.ADConfig.InsecureSkipVerify,
+			AutoCreateUser:      srv.ADConfig.AutoCreateUser,
+		})
+	}
+	// Start AD organization sync scheduler (daily cron).
+	srv.startADSyncScheduler(ctx)
 	chat.RegisterChatServer(server, &srv)
 	return nil
 }
@@ -89,6 +112,9 @@ type chatSvr struct {
 	Livekit         *rtc.LiveKit
 	ChatAdminUserID string
 	AllowRegister   bool
+	ADClient        *ad.Client
+	ADConfig        config.AD
+	IMCaller        imapi.CallerInterface
 }
 
 func (o *chatSvr) WithAdminUser(ctx context.Context) context.Context {

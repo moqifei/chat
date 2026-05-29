@@ -56,6 +56,10 @@ type ChatDatabaseInterface interface {
 	UserLoginCountTotal(ctx context.Context, before *time.Time) (int64, error)
 	UserLoginCountRangeEverydayTotal(ctx context.Context, start *time.Time, end *time.Time) (map[string]int64, int64, error)
 	DelUserAccount(ctx context.Context, userIDs []string) error
+
+	// AD organization sync
+	GetDepartmentInterface() chatdb.DepartmentInterface
+	GetDepartmentMemberInterface() chatdb.DepartmentMemberInterface
 }
 
 func NewChatDatabase(cli *mongoutil.Client) (ChatDatabaseInterface, error) {
@@ -87,6 +91,14 @@ func NewChatDatabase(cli *mongoutil.Client) (ChatDatabaseInterface, error) {
 	if err != nil {
 		return nil, err
 	}
+	department, err := chat.NewDepartment(cli.GetDB())
+	if err != nil {
+		return nil, err
+	}
+	departmentMember, err := chat.NewDepartmentMember(cli.GetDB())
+	if err != nil {
+		return nil, err
+	}
 	return &ChatDatabase{
 		tx:               cli.GetTx(),
 		register:         register,
@@ -96,6 +108,8 @@ func NewChatDatabase(cli *mongoutil.Client) (ChatDatabaseInterface, error) {
 		userLoginRecord:  userLoginRecord,
 		verifyCode:       verifyCode,
 		forbiddenAccount: forbiddenAccount,
+		department:       department,
+		departmentMember: departmentMember,
 	}, nil
 }
 
@@ -108,6 +122,16 @@ type ChatDatabase struct {
 	userLoginRecord  chatdb.UserLoginRecordInterface
 	verifyCode       chatdb.VerifyCodeInterface
 	forbiddenAccount admin.ForbiddenAccountInterface
+	department       chatdb.DepartmentInterface
+	departmentMember chatdb.DepartmentMemberInterface
+}
+
+func (o *ChatDatabase) GetDepartmentInterface() chatdb.DepartmentInterface {
+	return o.department
+}
+
+func (o *ChatDatabase) GetDepartmentMemberInterface() chatdb.DepartmentMemberInterface {
+	return o.departmentMember
 }
 
 func (o *ChatDatabase) GetUser(ctx context.Context, userID string) (account *chatdb.Account, err error) {
