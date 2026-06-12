@@ -99,8 +99,13 @@ func (r *RootCmd) initEtcd() error {
 		return err
 	}
 	if disConfig.Enable == kdisc.ETCDCONST {
-		discov, _ := kdisc.NewDiscoveryRegister(&disConfig, env, nil)
-		r.etcdClient = discov.(*etcd.SvcDiscoveryRegistryImpl).GetClient()
+		discov, err := kdisc.NewDiscoveryRegister(&disConfig, env, nil)
+		if err != nil {
+			return err
+		}
+		if etcdDiscov, ok := discov.(*etcd.SvcDiscoveryRegistryImpl); ok {
+			r.etcdClient = etcdDiscov.GetClient()
+		}
 	}
 	return nil
 }
@@ -113,14 +118,18 @@ func (r *RootCmd) persistentPreRun(cmd *cobra.Command, opts ...func(*CmdOpts)) e
 	if err := r.initializeConfiguration(cmd, cmdOpts); err != nil {
 		return err
 	}
-	if err := r.updateConfigFromEtcd(cmdOpts); err != nil {
-		return err
+	if r.etcdClient != nil {
+		if err := r.updateConfigFromEtcd(cmdOpts); err != nil {
+			return err
+		}
 	}
 	if err := r.initializeLogger(cmdOpts); err != nil {
 		return errs.WrapMsg(err, "failed to initialize logger")
 	}
-	if err := r.etcdClient.Close(); err != nil {
-		return errs.WrapMsg(err, "failed to close etcd client")
+	if r.etcdClient != nil {
+		if err := r.etcdClient.Close(); err != nil {
+			return errs.WrapMsg(err, "failed to close etcd client")
+		}
 	}
 
 	return nil

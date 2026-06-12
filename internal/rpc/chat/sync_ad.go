@@ -16,6 +16,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -29,6 +30,26 @@ import (
 	"github.com/openimsdk/tools/mcontext"
 	"github.com/openimsdk/tools/utils/idutil"
 )
+
+func adUserEx(username, email, phone, position string) string {
+	data := map[string]string{
+		"username": username,
+	}
+	if email != "" {
+		data["email"] = email
+	}
+	if phone != "" {
+		data["phone"] = phone
+	}
+	if position != "" {
+		data["position"] = position
+	}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
 
 // ────────── AD Organization Sync Scheduler ──────────
 
@@ -259,13 +280,15 @@ func (o *chatSvr) syncADMembersToIMServer(ctx context.Context, members []*chatdb
 				UserID:   m.UserID,
 				Nickname: m.Nickname,
 				FaceURL:  "",
+				Ex:       adUserEx(m.Username, m.Email, m.Phone, m.Position),
 			})
 			continue
 		}
 
 		// User exists → update if nickname differs.
-		if imInfo.Nickname != m.Nickname {
-			if uErr := o.IMCaller.UpdateUserInfo(imCtx, m.UserID, m.Nickname, ""); uErr != nil {
+		ex := adUserEx(m.Username, m.Email, m.Phone, m.Position)
+		if imInfo.Nickname != m.Nickname || imInfo.Ex != ex {
+			if uErr := o.IMCaller.UpdateUserInfo(imCtx, m.UserID, m.Nickname, "", ex); uErr != nil {
 				log.ZWarn(ctx, "AD org sync: failed to update IM user nickname",
 					uErr, "userID", m.UserID, "username", m.Username, "nickname", m.Nickname)
 			} else {
@@ -474,4 +497,3 @@ func flattenChildren(node *departmentNode) []*departmentNode {
 
 // ────────── Nickname extraction (uses login.go's extractADNickname) ──────────
 // extractADNickname is defined in login.go and shared across this package.
-

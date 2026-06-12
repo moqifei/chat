@@ -20,22 +20,17 @@ import (
 	"github.com/openimsdk/chat/pkg/common/config"
 	"github.com/openimsdk/tools/discovery"
 	"github.com/openimsdk/tools/discovery/etcd"
-	"github.com/openimsdk/tools/discovery/kubernetes"
 	"github.com/openimsdk/tools/errs"
 )
 
 const (
-	ETCDCONST       = "etcd"
-	KUBERNETESCONST = "kubernetes"
-	DIRECTCONST     = "direct"
+	ETCDCONST   = "etcd"
+	DIRECTCONST = "direct"
 )
 
 // NewDiscoveryRegister creates a new service discovery and registry client based on the provided environment type.
 func NewDiscoveryRegister(discovery *config.Discovery, runtimeEnv string, watchNames []string) (discovery.SvcDiscoveryRegistry, error) {
-	if runtimeEnv == KUBERNETESCONST {
-		return kubernetes.NewKubernetesConnManager(discovery.Kubernetes.Namespace)
-	}
-
+	// Always use etcd discovery to avoid type assertion panics in K8s environments.
 	switch discovery.Enable {
 	case ETCDCONST:
 		return etcd.NewSvcDiscoveryRegistry(

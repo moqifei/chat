@@ -25,7 +25,7 @@ type CallerInterface interface {
 	GetAdminTokenServer(ctx context.Context, userID string) (string, error)
 	InviteToGroup(ctx context.Context, userID string, groupIDs []string) error
 
-	UpdateUserInfo(ctx context.Context, userID string, nickName string, faceURL string) error
+	UpdateUserInfo(ctx context.Context, userID string, nickName string, faceURL string, ex ...string) error
 	GetUserInfo(ctx context.Context, userID string) (*sdkws.UserInfo, error)
 	GetUsersInfo(ctx context.Context, userIDs []string) ([]*sdkws.UserInfo, error)
 	AddNotificationAccount(ctx context.Context, req *user.AddNotificationAccountReq) error
@@ -133,11 +133,20 @@ func (c *Caller) InviteToGroup(ctx context.Context, userID string, groupIDs []st
 	return nil
 }
 
-func (c *Caller) UpdateUserInfo(ctx context.Context, userID string, nickName string, faceURL string) error {
-	_, err := updateUserInfo.Call(ctx, c.imApi, &user.UpdateUserInfoReq{UserInfo: &sdkws.UserInfo{
+func (c *Caller) UpdateUserInfo(ctx context.Context, userID string, nickName string, faceURL string, ex ...string) error {
+	info := &sdkws.UserInfo{
 		UserID:   userID,
 		Nickname: nickName,
 		FaceURL:  faceURL,
+	}
+	if len(ex) > 0 {
+		info.Ex = ex[0]
+	}
+	_, err := updateUserInfo.Call(ctx, c.imApi, &user.UpdateUserInfoReq{UserInfo: &sdkws.UserInfo{
+		UserID:   info.UserID,
+		Nickname: info.Nickname,
+		FaceURL:  info.FaceURL,
+		Ex:       info.Ex,
 	}})
 	return err
 }

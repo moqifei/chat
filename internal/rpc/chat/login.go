@@ -676,6 +676,7 @@ func (o *chatSvr) adLoginAndAutoCreate(ctx context.Context, req *chat.LoginReq, 
 				UserID:   userID,
 				Nickname: nickname,
 				FaceURL:  "",
+				Ex:       adUserEx(acc, email, "", ""),
 			}}); imErr != nil {
 				log.ZWarn(ctx, "ad auto-create: failed to register user to IM server", imErr, "userID", userID, "nickname", nickname)
 			} else {
@@ -752,7 +753,7 @@ func (o *chatSvr) adAuthenticateAndLogin(ctx context.Context, req *chat.LoginReq
 					log.ZWarn(ctx, "adAuthenticateAndLogin: failed to get im admin token", imErr, "userID", cred.UserID)
 				} else {
 					imCtx := mctx.WithApiToken(ctx, imToken)
-					if imErr := o.IMCaller.UpdateUserInfo(imCtx, cred.UserID, newNickname, ""); imErr != nil {
+					if imErr := o.IMCaller.UpdateUserInfo(imCtx, cred.UserID, newNickname, "", adUserEx(adAccount, adInfo.Email, "", "")); imErr != nil {
 						log.ZWarn(ctx, "adAuthenticateAndLogin: failed to update IM server nickname", imErr, "userID", cred.UserID, "nickname", newNickname)
 					} else {
 						log.ZInfo(ctx, "adAuthenticateAndLogin: IM server nickname updated", "userID", cred.UserID, "nickname", newNickname)
