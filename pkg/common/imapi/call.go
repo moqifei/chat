@@ -60,10 +60,10 @@ func (a caller[Req, Resp]) Call(ctx context.Context, apiPrefix string, req *Req)
 	start := time.Now()
 	resp, err := a.call(ctx, apiPrefix, req)
 	if err != nil {
-		log.ZError(ctx, "api caller failed", err, "api", a.api, "duration", time.Since(start), "req", req, "resp", resp)
+		log.ZError(ctx, "api caller failed", err, "api", a.api, "duration", time.Since(start), "req", req, "resp", safeLogResp(resp))
 		return nil, err
 	}
-	log.ZInfo(ctx, "api caller success resp", "api", a.api, "duration", time.Since(start), "req", req, "resp", resp)
+	log.ZInfo(ctx, "api caller success resp", "api", a.api, "duration", time.Since(start), "req", req, "resp", safeLogResp(resp))
 	return resp, nil
 }
 
@@ -105,11 +105,18 @@ func (a caller[Req, Resp]) CallWithQuery(ctx context.Context, apiPrefix string, 
 	start := time.Now()
 	resp, err := a.callWithQuery(ctx, apiPrefix, req, queryParams)
 	if err != nil {
-		log.ZError(ctx, "api caller failed", err, "api", a.api, "duration", time.Since(start), "req", req, "resp", resp)
+		log.ZError(ctx, "api caller failed", err, "api", a.api, "duration", time.Since(start), "req", req, "resp", safeLogResp(resp))
 		return nil, err
 	}
-	log.ZInfo(ctx, "api caller success resp", "api", a.api, "duration", time.Since(start), "req", req, "resp", resp)
+	log.ZInfo(ctx, "api caller success resp", "api", a.api, "duration", time.Since(start), "req", req, "resp", safeLogResp(resp))
 	return resp, nil
+}
+
+func safeLogResp[Resp any](resp *Resp) any {
+	if resp == nil {
+		return nil
+	}
+	return resp
 }
 
 func (a caller[Req, Resp]) callWithQuery(ctx context.Context, apiPrefix string, req *Req, queryParams map[string]string) (*Resp, error) {

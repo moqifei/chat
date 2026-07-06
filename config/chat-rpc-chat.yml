@@ -1,0 +1,87 @@
+rpc:
+  # The IP address where this RPC service registers itself; if left blank, it defaults to the internal network IP
+  registerIP: ''
+  # IP address that the RPC service listens on; setting to 0.0.0.0 listens on both internal and external IPs. If left blank, it automatically uses the internal network IP
+  listenIP: 0.0.0.0
+  # List of ports that the RPC service listens on; configuring multiple ports will launch multiple instances.
+  ports: [ 30300 ]
+
+verifyCode:
+  validTime: 300
+  validCount: 5
+  uintTime: 86400
+  maxCount: 10
+  superCode: "666666"
+  len: 6
+  phone:
+    use: "superCode"  # superCode: user superCode; ali: use ali verify code;
+    ali:
+      endpoint: ""
+      accessKeyId: ""
+      accessKeySecret: ""
+      signName: ""
+      verificationCodeTemplateCode: ""
+  mail:
+    use: "superCode"  # superCode: user superCode; mail: use mail verify code;
+    title: ""
+    senderMail: ""
+    senderAuthorizationCode: ""
+    smtpAddr: ""
+    smtpPort:
+
+liveKit:
+  url: "ws://127.0.0.1:7880" # LIVEKIT_URL, LiveKit server address and port
+  key: "APIGPW3gnFTzqHH"
+  secret: "23ztfSqsfQ8hKkHzHTl3Z4bvaxro0snjk5jwbp5p6Q3"
+
+allowRegister: true
+
+# Microsoft Active Directory (LDAP) configuration
+# Set enable: true to turn on AD authentication.
+# AD login coexists with existing password/verification-code login as a backup.
+ad:
+  enable: true
+  # LDAP server URL (ldap:// or ldaps://)
+  #serverURL: "ldap://172.17.0.2:389"
+  serverURL: "ldap://172.20.0.73:389"
+  # Base DN for user search (e.g. DC=example,DC=com)
+  #baseDN: "dc=test,dc=bx"
+  baseDN: "OU=中信百信银行,DC=qa,DC=bx"
+  # Direct bind template: "CN=%s,OU=Users,DC=example,DC=com"
+  # When set, %s is replaced with the username and the server tries a direct bind.
+  # When empty, search-based auth is used (requires bindDN / bindPassword).
+  #userDN: "CN=%s,OU=中信百信银行,DC=qa,DC=bx"
+  userDN: ""
+  # Service account DN for search-based authentication (optional if userDN is set)
+  bindDN: "AiSecCenter@qa.bx"
+  #bindDN: "CN=yejunjiao,DC=qa,DC=bx"
+  #bindDN: ""
+  # Service account password
+  bindPassword: "Thanatos1!"
+  #bindPassword: ""
+  # LDAP filter for locating the user (e.g. "(sAMAccountName=%s)").
+  # %s is replaced with the username. Defaults to "(sAMAccountName=%s)" if empty.
+  #userFilter: "(uid=%s)"
+  userFilter: "(sAMAccountName=%s)"
+  # LDAP attribute mapped to OpenIM username (default: "sAMAccountName")
+  #usernameAttribute: "uid"
+  usernameAttribute: "sAMAccountName"
+  # LDAP attribute mapped to email (default: "mail")
+  emailAttribute: "mail"
+  # LDAP attribute mapped to display name (default: "displayName")
+  displayNameAttribute: "displayName"
+  # Skip TLS certificate verification (only for dev environments)
+  # insecureSkipVerify: true
+  # Active Directory domain name for NTLM authentication (NetBIOS or DNS).
+  # When set, NTLM SASL bind is used on plain ldap:// (no TLS / STARTTLS required).
+  # Example: "QA" or "qa.bx". Leave empty to use simple bind with STARTTLS.
+  # domain: "qa.bx"
+  # Negotiate STARTTLS on plain ldap:// connections.
+  # Set to false for local/dev OpenLDAP instances that don't support STARTTLS.
+  # Real Active Directory typically requires this to be true.
+  startTLS: false
+  # Auto-create a local chat user on the first successful AD login
+  autoCreateUser: true
+  sync:
+    enable: true
+    cron: "0 2 * * *"

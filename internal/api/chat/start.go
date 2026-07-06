@@ -17,10 +17,13 @@ import (
 	"github.com/openimsdk/chat/pkg/common/imapi"
 	"github.com/openimsdk/chat/pkg/common/kdisc"
 	disetcd "github.com/openimsdk/chat/pkg/common/kdisc/etcd"
+	"github.com/openimsdk/chat/pkg/digitaltwin"
 	adminclient "github.com/openimsdk/chat/pkg/protocol/admin"
 	chatclient "github.com/openimsdk/chat/pkg/protocol/chat"
+	"github.com/openimsdk/tools/db/mongoutil"
 	"github.com/openimsdk/tools/discovery/etcd"
 	"github.com/openimsdk/tools/errs"
+	"github.com/openimsdk/tools/log"
 	"github.com/openimsdk/tools/mw"
 	"github.com/openimsdk/tools/system/program"
 	"github.com/openimsdk/tools/utils/datautil"
@@ -34,6 +37,7 @@ type Config struct {
 	Discovery config.Discovery
 	Share     config.Share
 	Redis     config.Redis
+	Mongodb   config.Mongo
 
 	RuntimeEnv string
 }
@@ -64,12 +68,40 @@ func Start(ctx context.Context, index int, cfg *Config) error {
 	chatClient := chatclient.NewChatClient(chatConn)
 	adminClient := adminclient.NewAdminClient(adminConn)
 	im := imapi.New(cfg.Share.OpenIM.ApiURL, cfg.Share.OpenIM.Secret, cfg.Share.OpenIM.AdminUserID)
+	if cfg.Mongodb.Database != "" || cfg.Mongodb.URI != "" || len(cfg.Mongodb.Address) > 0 {
+		mgocli, err := mongoutil.NewMongoDB(ctx, cfg.Mongodb.Build())
+		if err != nil {
+			log.ZWarn(ctx, "digital twin mongo config store disabled", err)
+		} else if dtStore, err := digitaltwin.NewMongoConfigStore(mgocli.GetDB()); err != nil {
+			log.ZWarn(ctx, "digital twin mongo config store disabled", err)
+		} else if replyRecordStore, err := digitaltwin.NewMongoReplyRecordStore(mgocli.GetDB()); err != nil {
+			log.ZWarn(ctx, "digital twin reply record store disabled", err)
+			digitaltwin.SetPrimaryConfigStore(dtStore)
+			log.ZInfo(ctx, "digital twin mongo config store enabled")
+		} else if unreadTimeoutTaskStore, err := digitaltwin.NewMongoUnreadTimeoutTaskStore(mgocli.GetDB()); err != nil {
+			log.ZWarn(ctx, "digital twin unread timeout task store disabled", err)
+			digitaltwin.SetPrimaryConfigStore(dtStore)
+			digitaltwin.SetReplyRecordStore(replyRecordStore)
+			log.ZInfo(ctx, "digital twin mongo config store enabled")
+			log.ZInfo(ctx, "digital twin mongo reply record store enabled")
+		} else {
+			digitaltwin.SetPrimaryConfigStore(dtStore)
+			digitaltwin.SetReplyRecordStore(replyRecordStore)
+			digitaltwin.SetUnreadTimeoutTaskStore(unreadTimeoutTaskStore)
+			log.ZInfo(ctx, "digital twin mongo config store enabled")
+			log.ZInfo(ctx, "digital twin mongo reply record store enabled")
+			log.ZInfo(ctx, "digital twin mongo unread timeout task store enabled")
+		}
+	}
 	base := util.Api{
 		ImUserID:        cfg.Share.OpenIM.AdminUserID,
 		ProxyHeader:     cfg.Share.ProxyHeader,
 		ChatAdminUserID: cfg.Share.ChatAdmin[0],
 	}
 	adminApi := New(chatClient, adminClient, im, &base)
+	digitaltwin.StartUnreadTimeoutTaskWorker(ctx, 5*time.Second, 20, func(ctx context.Context, task digitaltwin.UnreadTimeoutTask) error {
+		return adminApi.executeUnreadTimeoutDigitalTwin(ctx, task.ChannelKey, task.Request)
+	})
 	mwApi := chatmw.New(adminClient)
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
@@ -95,6 +127,7 @@ func Start(ctx context.Context, index int, cfg *Config) error {
 				config.DiscoveryConfigFileName,
 				config.ShareFileName,
 				config.LogConfigFileName,
+				config.MongodbConfigFileName,
 			},
 		)
 		cm.Watch(ctx)
@@ -154,6 +187,21 @@ func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	applicationGroup.POST("/page_versions", chat.PageApplicationVersion)
 
 	router.Group("/callback").POST("/open_im", chat.OpenIMCallback) // Callback
+
+	digitalTwin := router.Group("")
+	digitalTwin.POST("/im_callback/callbackAfterSendSingleMsgCommand", chat.AfterSendSingleMsgDigitalTwin)
+	digitalTwin.POST("/im_callback/callbackAfterSingleMsgReadCommand", chat.AfterSingleMsgReadDigitalTwin)
+
+	digitalTwinConfig := router.Group("/digital_twin", mw.CheckToken)
+	digitalTwinConfig.POST("/config/get", chat.GetDigitalTwinConfig)
+	digitalTwinConfig.POST("/config/update", chat.UpdateDigitalTwinConfig)
+	digitalTwinConfig.POST("/replies/list", chat.ListDigitalTwinReplies)
+	digitalTwinConfig.POST("/replies/review", chat.ReviewDigitalTwinReply)
+	digitalTwinConfig.POST("/unread_timeout/summary", chat.GetDigitalTwinUnreadTimeoutSummary)
+	digitalTwinConfig.POST("/overview", chat.GetDigitalTwinOverview)
+	digitalTwinConfig.POST("/skills/generate", chat.GenerateDigitalTwinSkill)
+	digitalTwinConfig.POST("/skills/list", chat.ListDigitalTwinSkills)
+	digitalTwinConfig.POST("/skills/delete", chat.DeleteDigitalTwinSkill)
 
 	ad := router.Group("/ad", mw.CheckToken)
 	ad.POST("/department/list", chat.GetADDepartmentList)

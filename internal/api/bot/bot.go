@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/openimsdk/chat/internal/api/util"
 	"github.com/openimsdk/chat/pkg/botstruct"
+	"github.com/openimsdk/chat/pkg/common/imapi"
 	"github.com/openimsdk/chat/pkg/common/imwebhook"
 	"github.com/openimsdk/chat/pkg/protocol/bot"
 	"github.com/openimsdk/protocol/constant"
@@ -17,16 +18,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func New(botClient bot.BotClient, api *util.Api) *Api {
+func New(botClient bot.BotClient, imApiCaller imapi.CallerInterface, api *util.Api) *Api {
 	return &Api{
-		Api:       api,
-		botClient: botClient,
+		Api:         api,
+		botClient:   botClient,
+		imApiCaller: imApiCaller,
 	}
 }
 
 type Api struct {
 	*util.Api
-	botClient bot.BotClient
+	botClient   bot.BotClient
+	imApiCaller imapi.CallerInterface
 }
 
 func (o *Api) CreateAgent(c *gin.Context) {
@@ -60,7 +63,7 @@ func (o *Api) AfterSendSingleMsg(c *gin.Context) {
 	}
 	isAgent := botstruct.IsAgentUserID(req.RecvID)
 	if !isAgent {
-		apiresp.GinSuccess(c, nil)
+		o.afterSendSingleMsgDigitalTwin(c, req)
 		return
 	}
 

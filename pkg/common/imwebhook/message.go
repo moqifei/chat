@@ -46,3 +46,15 @@ type CallbackAfterSendGroupMsgReq struct {
 type CallbackAfterSendGroupMsgResp struct {
 	CommonCallbackResp
 }
+
+type CallbackSingleMsgReadReq struct {
+	CallbackCommand string  `json:"callbackCommand"`
+	ConversationID  string  `json:"conversationID"`
+	UserID          string  `json:"userID"`
+	Seqs            []int64 `json:"Seqs"`
+	ContentType     int32   `json:"contentType"`
+}
+
+type CallbackSingleMsgReadResp struct {
+	CommonCallbackResp
+}

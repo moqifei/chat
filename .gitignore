@@ -356,6 +356,9 @@ flycheck_*.el
 # log
 *.log
 
+#tar
+*.tar
+
 # Output of backend and frontend
 /_output
 /_debug
@@ -374,7 +377,7 @@ dist
 # config files, may contain sensitive informatio
 config/config.yaml
 
-config/chat-rpc-chat.yml
+#config/chat-rpc-chat.yml
 config/chat-rpc-chat_ceshi.yml_bak.yml
 config/chat-rpc-chat_local.yml_bak.yml
 config/chat-rpc-chat_pro.yml_bak.yml

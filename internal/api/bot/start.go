@@ -14,6 +14,7 @@ import (
 	chatmw "github.com/openimsdk/chat/internal/api/mw"
 	"github.com/openimsdk/chat/internal/api/util"
 	"github.com/openimsdk/chat/pkg/common/config"
+	"github.com/openimsdk/chat/pkg/common/imapi"
 	"github.com/openimsdk/chat/pkg/common/kdisc"
 	disetcd "github.com/openimsdk/chat/pkg/common/kdisc/etcd"
 	adminclient "github.com/openimsdk/chat/pkg/protocol/admin"
@@ -58,12 +59,13 @@ func Start(ctx context.Context, index int, cfg *Config) error {
 	}
 	adminClient := adminclient.NewAdminClient(adminConn)
 	botClient := botclient.NewBotClient(botConn)
+	im := imapi.New(cfg.Share.OpenIM.ApiURL, cfg.Share.OpenIM.Secret, cfg.Share.OpenIM.AdminUserID)
 	base := util.Api{
 		ImUserID:        cfg.Share.OpenIM.AdminUserID,
 		ProxyHeader:     cfg.Share.ProxyHeader,
 		ChatAdminUserID: cfg.Share.ChatAdmin[0],
 	}
-	botApi := New(botClient, &base)
+	botApi := New(botClient, im, &base)
 	mwApi := chatmw.New(adminClient)
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()

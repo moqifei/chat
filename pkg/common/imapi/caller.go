@@ -13,6 +13,7 @@ import (
 	"github.com/openimsdk/protocol/relation"
 	"github.com/openimsdk/protocol/sdkws"
 	"github.com/openimsdk/protocol/user"
+	"github.com/openimsdk/protocol/wrapperspb"
 	"github.com/openimsdk/tools/errs"
 	"github.com/openimsdk/tools/log"
 )
@@ -26,6 +27,7 @@ type CallerInterface interface {
 	InviteToGroup(ctx context.Context, userID string, groupIDs []string) error
 
 	UpdateUserInfo(ctx context.Context, userID string, nickName string, faceURL string, ex ...string) error
+	UpdateUserEx(ctx context.Context, userID string, ex string) error
 	GetUserInfo(ctx context.Context, userID string) (*sdkws.UserInfo, error)
 	GetUsersInfo(ctx context.Context, userIDs []string) ([]*sdkws.UserInfo, error)
 	AddNotificationAccount(ctx context.Context, req *user.AddNotificationAccountReq) error
@@ -151,6 +153,14 @@ func (c *Caller) UpdateUserInfo(ctx context.Context, userID string, nickName str
 	return err
 }
 
+func (c *Caller) UpdateUserEx(ctx context.Context, userID string, ex string) error {
+	_, err := updateUserInfoEx.Call(ctx, c.imApi, &user.UpdateUserInfoExReq{UserInfo: &sdkws.UserInfoWithEx{
+		UserID: userID,
+		Ex:     wrapperspb.String(ex),
+	}})
+	return err
+}
+
 func (c *Caller) GetUserInfo(ctx context.Context, userID string) (*sdkws.UserInfo, error) {
 	resp, err := c.GetUsersInfo(ctx, []string{userID})
 	if err != nil {
@@ -168,6 +178,9 @@ func (c *Caller) GetUsersInfo(ctx context.Context, userIDs []string) ([]*sdkws.U
 	})
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, errs.ErrRecordNotFound.WrapMsg("get users info response is empty")
 	}
 	return resp.UsersInfo, nil
 }
