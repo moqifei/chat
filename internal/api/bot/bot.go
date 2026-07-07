@@ -15,6 +15,7 @@ import (
 	"github.com/openimsdk/tools/a2r"
 	"github.com/openimsdk/tools/apiresp"
 	"github.com/openimsdk/tools/errs"
+	"github.com/openimsdk/tools/log"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -62,6 +63,18 @@ func (o *Api) AfterSendSingleMsg(c *gin.Context) {
 		return
 	}
 	isAgent := botstruct.IsAgentUserID(req.RecvID)
+	log.ZInfo(c, "bot after send single msg route decision",
+		"callbackCommand", req.CallbackCommand,
+		"operationID", req.OperationID,
+		"sendID", req.SendID,
+		"recvID", req.RecvID,
+		"senderPlatformID", req.SenderPlatformID,
+		"sessionType", req.SessionType,
+		"msgFrom", req.MsgFrom,
+		"contentType", req.ContentType,
+		"senderIsAgentByPlatform", botstruct.IsAgentPlatformID(req.SenderPlatformID),
+		"recvIsAgentByPrefix", isAgent,
+	)
 	if !isAgent {
 		o.afterSendSingleMsgDigitalTwin(c, req)
 		return

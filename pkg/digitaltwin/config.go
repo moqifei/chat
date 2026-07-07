@@ -198,6 +198,9 @@ func ShouldReply(cfg Config, req imwebhook.CallbackAfterSendSingleMsgReq) Decisi
 	if req.SendID == req.RecvID {
 		return Decision{Reason: "same_sender_receiver"}
 	}
+	if botstruct.IsAgentPlatformID(req.SenderPlatformID) {
+		return Decision{Reason: "agent_platform_message"}
+	}
 	if botstruct.IsAgentUserID(req.SendID) || botstruct.IsAgentUserID(req.RecvID) {
 		return Decision{Reason: "agent_message"}
 	}

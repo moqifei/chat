@@ -33,6 +33,27 @@ func (o *Api) afterSendSingleMsgDigitalTwin(c *gin.Context, req imwebhook.Callba
 		return
 	}
 	decision := digitaltwin.ShouldReply(cfg, req)
+	log.ZInfo(c, "digital twin after send decision",
+		"entry", "bot_api",
+		"callbackCommand", req.CallbackCommand,
+		"operationID", req.OperationID,
+		"sendID", req.SendID,
+		"recvID", req.RecvID,
+		"senderPlatformID", req.SenderPlatformID,
+		"sessionType", req.SessionType,
+		"msgFrom", req.MsgFrom,
+		"contentType", req.ContentType,
+		"senderIsAgentByPlatform", botstruct.IsAgentPlatformID(req.SenderPlatformID),
+		"sendIsAgentByPrefix", botstruct.IsAgentUserID(req.SendID),
+		"recvIsAgentByPrefix", botstruct.IsAgentUserID(req.RecvID),
+		"isDigitalTwinEx", digitaltwin.IsDigitalTwinEx(req.Ex),
+		"configSource", source,
+		"configEnabled", cfg.Enabled,
+		"configAllowAll", cfg.AllowAll,
+		"triggerMode", cfg.TriggerMode,
+		"decisionHandled", decision.Handled,
+		"decisionReason", decision.Reason,
+	)
 	resp := struct {
 		digitaltwin.Decision
 		ConfigSource string                  `json:"configSource"`
@@ -129,6 +150,20 @@ func (o *Api) executeUnreadTimeoutDigitalTwin(ctx context.Context, key string, r
 		)
 		return nil
 	}
+	log.ZInfo(ctx, "digital twin unread timeout base decision passed",
+		"entry", "bot_api",
+		"ownerUserID", req.RecvID,
+		"senderUserID", req.SendID,
+		"operationID", req.OperationID,
+		"senderPlatformID", req.SenderPlatformID,
+		"sessionType", req.SessionType,
+		"msgFrom", req.MsgFrom,
+		"senderIsAgentByPlatform", botstruct.IsAgentPlatformID(req.SenderPlatformID),
+		"sendIsAgentByPrefix", botstruct.IsAgentUserID(req.SendID),
+		"recvIsAgentByPrefix", botstruct.IsAgentUserID(req.RecvID),
+		"configSource", source,
+		"triggerMode", cfg.TriggerMode,
+	)
 	now := time.Now()
 	scheduleDecision := digitaltwin.ShouldSkipBySchedule(cfg, now)
 	if !scheduleDecision.Handled {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	commonconstant "github.com/openimsdk/chat/pkg/common/constant"
 	"github.com/openimsdk/chat/pkg/common/imwebhook"
 	"github.com/openimsdk/protocol/constant"
 )
@@ -39,6 +40,12 @@ func TestShouldReply(t *testing.T) {
 	}
 
 	req.RecvID = "user_b"
+	req.SenderPlatformID = commonconstant.AgentPlatformID
+	if decision := ShouldReply(cfg, req); decision.Handled || decision.Reason != "agent_platform_message" {
+		t.Fatalf("expected agent_platform_message, got %+v", decision)
+	}
+	req.SenderPlatformID = 0
+
 	cfg = Config{
 		Enabled:              true,
 		UserIDs:              map[string]struct{}{"user_b": {}},
