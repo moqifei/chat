@@ -340,10 +340,26 @@ func (o *chatSvr) SearchUserFullInfo(ctx context.Context, req *chat.SearchUserFu
 	if _, _, err := mctx.Check(ctx); err != nil {
 		return nil, err
 	}
-	total, list, err := o.Database.Search(ctx, req.Normal, req.Keyword, req.Genders, req.Pagination)
+	
+	// registerTypes is passed directly in the protobuf request (field 5)
+	registerTypes := req.RegisterTypes
+
+	log.ZInfo(ctx, "SearchUserFullInfo RPC received request", "keyword", req.Keyword, "registerTypes", registerTypes, "normal", req.Normal)
+	
+	var total int64
+	var list []*chatdb.Attribute
+	var err error
+	if len(registerTypes) > 0 {
+		log.ZInfo(ctx, "Using SearchWithRegisterTypes", "registerTypes", registerTypes)
+		total, list, err = o.Database.SearchWithRegisterTypes(ctx, req.Normal, req.Keyword, req.Genders, registerTypes, req.Pagination)
+	} else {
+		log.ZInfo(ctx, "Using regular Search without registerTypes filter")
+		total, list, err = o.Database.Search(ctx, req.Normal, req.Keyword, req.Genders, req.Pagination)
+	}
 	if err != nil {
 		return nil, err
 	}
+	log.ZInfo(ctx, "SearchUserFullInfo RPC response", "total", total, "usersCount", len(list))
 	return &chat.SearchUserFullInfoResp{
 		Total: uint32(total),
 		Users: DbToPbUserFullInfos(list),

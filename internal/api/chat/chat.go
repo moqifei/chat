@@ -15,6 +15,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"time"
@@ -340,7 +341,44 @@ func (o *Api) FindUserFullInfo(c *gin.Context) {
 }
 
 func (o *Api) SearchUserFullInfo(c *gin.Context) {
-	a2r.Call(c, chatpb.ChatClient.SearchUserFullInfo, o.chatClient)
+	// Read raw body
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		apiresp.GinError(c, errs.ErrArgs.WrapMsg(err.Error()))
+		return
+	}
+	
+	// Parse JSON manually
+	var req struct {
+		Keyword       string                   `json:"keyword"`
+		Pagination    *sdkws.RequestPagination `json:"pagination"`
+		Genders       int32                    `json:"genders"`
+		Normal        int32                    `json:"normal"`
+		RegisterTypes []int32                  `json:"registerTypes"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		apiresp.GinError(c, errs.ErrArgs.WrapMsg(err.Error()))
+		return
+	}
+	log.ZInfo(c, "SearchUserFullInfo API received request", "keyword", req.Keyword, "registerTypes", req.RegisterTypes, "normal", req.Normal)
+	
+	// Convert to protobuf request (registerTypes passed directly in the proto,
+	// consistent with Keyword/Pagination/Genders/Normal — avoids unreliable
+	// gRPC metadata propagation that previously dropped the value)
+	pbReq := &chatpb.SearchUserFullInfoReq{
+		Keyword:       req.Keyword,
+		Pagination:    req.Pagination,
+		Genders:       req.Genders,
+		Normal:        req.Normal,
+		RegisterTypes: req.RegisterTypes,
+	}
+
+	resp, err := o.chatClient.SearchUserFullInfo(c, pbReq)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	apiresp.GinSuccess(c, resp)
 }
 
 func (o *Api) SearchUserPublicInfo(c *gin.Context) {

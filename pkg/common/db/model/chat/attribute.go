@@ -146,6 +146,37 @@ func (o *Attribute) SearchNormalUser(ctx context.Context, keyword string, forbid
 	return mongoutil.FindPage[*chat.Attribute](ctx, o.coll, filter, pagination)
 }
 
+func (o *Attribute) SearchNormalUserWithRegisterTypes(ctx context.Context, keyword string, forbiddenIDs []string, gender int32, registerTypes []int32, pagination pagination.Pagination) (int64, []*chat.Attribute, error) {
+	filter := bson.M{}
+	if gender == 0 {
+		filter["gender"] = bson.M{
+			"$in": []int32{0, 1, 2},
+		}
+	} else {
+		filter["gender"] = gender
+	}
+	if len(forbiddenIDs) > 0 {
+		filter["user_id"] = bson.M{
+			"$nin": forbiddenIDs,
+		}
+	}
+	if len(registerTypes) > 0 {
+		filter["register_type"] = bson.M{
+			"$in": registerTypes,
+		}
+	}
+	if keyword != "" {
+		filter["$or"] = []bson.M{
+			{"user_id": bson.M{"$regex": keyword, "$options": "i"}},
+			{"account": bson.M{"$regex": keyword, "$options": "i"}},
+			{"nickname": bson.M{"$regex": keyword, "$options": "i"}},
+			{"phone_number": bson.M{"$regex": keyword, "$options": "i"}},
+			{"email": bson.M{"$regex": keyword, "$options": "i"}},
+		}
+	}
+	return mongoutil.FindPage[*chat.Attribute](ctx, o.coll, filter, pagination)
+}
+
 func (o *Attribute) SearchUser(ctx context.Context, keyword string, userIDs []string, genders []int32, pagination pagination.Pagination) (int64, []*chat.Attribute, error) {
 	filter := bson.M{}
 	if len(genders) > 0 {

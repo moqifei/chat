@@ -215,6 +215,7 @@ message SearchUserFullInfoReq {
   openim.sdkws.RequestPagination pagination = 2;
   int32 genders = 3;
   int32 normal = 4;
+  repeated int32 registerTypes = 5;
 }
 
 message SearchUserFullInfoResp {
