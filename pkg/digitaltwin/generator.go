@@ -29,6 +29,9 @@ const (
 	ReplySourceHTTPGeneratorFallback   = "http_generator_fallback"
 	defaultGeneratorTimeout            = 10 * time.Second
 	maxGeneratorResponsePreviewBytes   = 512
+	// 技能相关接口（列表/任务状态）可能返回较大响应体（如完整 SKILL.md 内容），
+	// 允许读取到 8MB，避免被 LimitReader 截断导致 JSON 解码 unexpected EOF。
+	maxSkillResponseBytes              = 8 * 1024 * 1024
 	generatorResponseContentTypeHeader = "Content-Type"
 )
 

@@ -200,8 +200,13 @@ func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	digitalTwinConfig.POST("/unread_timeout/summary", chat.GetDigitalTwinUnreadTimeoutSummary)
 	digitalTwinConfig.POST("/overview", chat.GetDigitalTwinOverview)
 	digitalTwinConfig.POST("/skills/generate", chat.GenerateDigitalTwinSkill)
+	digitalTwinConfig.POST("/skills/tasks/:task_id", chat.GetDigitalTwinSkillGenerateTaskStatus)
 	digitalTwinConfig.POST("/skills/list", chat.ListDigitalTwinSkills)
+	digitalTwinConfig.POST("/skills/get", chat.GetDigitalTwinSkill)
 	digitalTwinConfig.POST("/skills/delete", chat.DeleteDigitalTwinSkill)
+	// SKILL Plaza (企业技能广场) — external marketplace
+	digitalTwinConfig.POST("/skills/plaza/list", chat.ListPlazaSkills)
+	digitalTwinConfig.POST("/skills/plaza/install", chat.DownloadAndInstallPlazaSkill)
 
 	ad := router.Group("/ad", mw.CheckToken)
 	ad.POST("/department/list", chat.GetADDepartmentList)
