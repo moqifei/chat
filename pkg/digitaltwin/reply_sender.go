@@ -12,7 +12,7 @@ import (
 
 func SendReply(ctx context.Context, caller imapi.CallerInterface, key string, req imwebhook.CallbackAfterSendSingleMsgReq, cfg Config, configSource string, now time.Time) (ReplyPlan, error) {
 	replyPlan := BuildReplyPlan(ctx, req, cfg)
-	ex, err := BuildReplyExWithSourceTraceTextAndError(req, now, replyPlan.Source, replyPlan.Trace, replyPlan.Content, replyPlan.GeneratorError)
+	ex, err := BuildReplyExWithSourceTraceTextAndError(req, now, replyPlan.Source, replyPlan.Trace, replyPlan.Content, replyPlan.GeneratorError, replyPlan.Citations)
 	if err != nil {
 		return replyPlan, err
 	}

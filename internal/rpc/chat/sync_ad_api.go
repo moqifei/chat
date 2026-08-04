@@ -16,8 +16,10 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	ad "github.com/openimsdk/chat/pkg/common/ad"
 	chatdb "github.com/openimsdk/chat/pkg/common/db/table/chat"
 	"github.com/openimsdk/chat/pkg/protocol/chat"
 	"github.com/openimsdk/protocol/sdkws"
@@ -26,7 +28,60 @@ import (
 
 // ────────── AD Organization gRPC API ──────────
 
-// GetADDepartmentList returns all synced departments.
+// allowedDepartmentPrefixes builds a set of DN prefixes that identify departments
+// under the allowed top-level OUs (COUsers / PJUsers / ZXBXUsers).
+func allowedDepartmentPrefixes() []string {
+	prefixes := make([]string, len(ad.AllowedOUs))
+	for i, ou := range ad.AllowedOUs {
+		prefixes[i] = ",ou=" + ou + ","
+	}
+	return prefixes
+}
+
+// isAllowedDepartmentID checks whether a departmentID (DN) falls under one
+// of the allowed top-level OUs.
+func isAllowedDepartmentID(departmentID string) bool {
+	dnLower := strings.ToLower(departmentID)
+	for _, prefix := range allowedDepartmentPrefixes() {
+		if strings.Contains(dnLower, strings.ToLower(prefix)) {
+			return true
+		}
+	}
+	return false
+}
+
+// filterDepartments removes any department whose ID (DN) is not under an
+// allowed top-level OU.
+func filterDepartments(departments []*chat.ADDepartmentInfo) []*chat.ADDepartmentInfo {
+	if len(departments) == 0 {
+		return nil
+	}
+	var filtered []*chat.ADDepartmentInfo
+	for _, d := range departments {
+		if isAllowedDepartmentID(d.DepartmentID) {
+			filtered = append(filtered, d)
+		}
+	}
+	return filtered
+}
+
+// filterMembers removes any member whose DepartmentID is not under an
+// allowed top-level OU.
+func filterMembers(members []*chat.ADDepartmentMemberInfo) []*chat.ADDepartmentMemberInfo {
+	if len(members) == 0 {
+		return nil
+	}
+	var filtered []*chat.ADDepartmentMemberInfo
+	for _, m := range members {
+		if isAllowedDepartmentID(m.DepartmentID) {
+			filtered = append(filtered, m)
+		}
+	}
+	return filtered
+}
+
+// GetADDepartmentList returns all synced departments, filtered to only
+// include those under the allowed top-level OUs (COUsers / PJUsers / ZXBXUsers).
 func (o *chatSvr) GetADDepartmentList(ctx context.Context, req *chat.GetADDepartmentListReq) (*chat.GetADDepartmentListResp, error) {
 	departments, err := o.Database.GetDepartmentInterface().FindAll(ctx)
 	if err != nil {
@@ -43,11 +98,13 @@ func (o *chatSvr) GetADDepartmentList(ctx context.Context, req *chat.GetADDepart
 			Level:              int32(d.Level),
 		})
 	}
+	resp.Departments = filterDepartments(resp.Departments)
 	log.ZInfo(ctx, "GetADDepartmentList: queried departments", "count", len(resp.Departments))
 	return resp, nil
 }
 
-// SearchADDepartments searches departments by keyword.
+// SearchADDepartments searches departments by keyword, filtered to only
+// include results under allowed top-level OUs.
 func (o *chatSvr) SearchADDepartments(ctx context.Context, req *chat.SearchADDepartmentsReq) (*chat.SearchADDepartmentsResp, error) {
 	departments, err := o.Database.GetDepartmentInterface().Search(ctx, req.Keyword)
 	if err != nil {
@@ -64,12 +121,19 @@ func (o *chatSvr) SearchADDepartments(ctx context.Context, req *chat.SearchADDep
 			Level:              int32(d.Level),
 		})
 	}
+	resp.Departments = filterDepartments(resp.Departments)
 	resp.Total = int64(len(resp.Departments))
 	return resp, nil
 }
 
 // GetADDepartmentMembers returns members of a department with pagination.
+// Returns empty if the requested department is not under an allowed OU.
 func (o *chatSvr) GetADDepartmentMembers(ctx context.Context, req *chat.GetADDepartmentMembersReq) (*chat.GetADDepartmentMembersResp, error) {
+	// Guard: reject requests for departments outside allowed OUs.
+	if !isAllowedDepartmentID(req.DepartmentID) {
+		return &chat.GetADDepartmentMembersResp{Total: 0}, nil
+	}
+
 	total, members, err := o.Database.GetDepartmentMemberInterface().FindByDepartmentID(ctx, req.DepartmentID, req.Pagination)
 	if err != nil {
 		return nil, err
@@ -82,7 +146,8 @@ func (o *chatSvr) GetADDepartmentMembers(ctx context.Context, req *chat.GetADDep
 	return resp, nil
 }
 
-// SearchADMembers searches organization members by keyword, optionally filtered by department.
+// SearchADMembers searches organization members by keyword, optionally filtered
+// by department. Results are filtered to only include members under allowed OUs.
 func (o *chatSvr) SearchADMembers(ctx context.Context, req *chat.SearchADMembersReq) (*chat.SearchADMembersResp, error) {
 	total, members, err := o.Database.GetDepartmentMemberInterface().Search(ctx, req.Keyword, req.DepartmentID, req.Pagination)
 	if err != nil {
@@ -92,7 +157,9 @@ func (o *chatSvr) SearchADMembers(ctx context.Context, req *chat.SearchADMembers
 	for _, m := range members {
 		resp.Members = append(resp.Members, departmentMemberToProto(m))
 	}
-	log.ZInfo(ctx, "SearchADMembers", "keyword", req.Keyword, "departmentID", req.DepartmentID, "total", total)
+	resp.Members = filterMembers(resp.Members)
+	resp.Total = int64(len(resp.Members))
+	log.ZInfo(ctx, "SearchADMembers", "keyword", req.Keyword, "departmentID", req.DepartmentID, "total", resp.Total)
 	return resp, nil
 }
 

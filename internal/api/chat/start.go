@@ -207,6 +207,10 @@ func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	// SKILL Plaza (企业技能广场) — external marketplace
 	digitalTwinConfig.POST("/skills/plaza/list", chat.ListPlazaSkills)
 	digitalTwinConfig.POST("/skills/plaza/install", chat.DownloadAndInstallPlazaSkill)
+	// Knowledge Base proxy — 代理到 Arkon 知识库服务
+	digitalTwinConfig.POST("/kb/spaces", chat.ListWikiSpaces)
+	digitalTwinConfig.POST("/kb/index", chat.GetWikiIndex)
+	digitalTwinConfig.POST("/kb/search", chat.KnowledgeSearch)
 
 	ad := router.Group("/ad", mw.CheckToken)
 	ad.POST("/department/list", chat.GetADDepartmentList)

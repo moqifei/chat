@@ -23,6 +23,37 @@ import (
 	"github.com/openimsdk/tools/log"
 )
 
+// AllowedOUs defines the only top-level OUs under baseDN whose users and
+// departments should be synced and exposed via organization APIs.
+// Users or departments outside these OUs are silently excluded.
+var AllowedOUs = []string{
+	"COUsers",
+	"PJUsers",
+	"ZXBXUsers",
+}
+
+// isUnderAllowedOU checks whether a DN (department or user) falls under
+// one of the allowed top-level OUs.  It scans all OU components of the DN
+// and returns true if any component matches an entry in AllowedOUs.
+func isUnderAllowedOU(dn string) bool {
+	parts := splitDN(dn)
+	for _, part := range parts {
+		if !isOU(part) {
+			continue
+		}
+		// part is like "ou=COUsers" or "OU=COUsers". OpenLDAP returns the
+		// attribute name in lowercase ("ou="), so we strip the first 3 chars
+		// (the "ou="/"OU=" prefix) and compare the value case-insensitively.
+		name := part[3:]
+		for _, allowed := range AllowedOUs {
+			if strings.EqualFold(name, allowed) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // SyncDepartment represents a single organizational unit discovered during AD sync.
 type SyncDepartment struct {
 	DN       string // Full distinguished name, e.g. "OU=信息技术部,OU=ZXBXUsers,OU=中信百信银行,DC=qa,DC=bx"
@@ -120,6 +151,11 @@ func (c *Client) searchOUs(conn *ldap.Conn) ([]*SyncDepartment, error) {
 		dn := entry.DN
 		parentDN := parentDN(dn)
 
+		// Only include OUs that are under the allowed top-level OUs.
+		if !isUnderAllowedOU(dn) {
+			continue
+		}
+
 		deps = append(deps, &SyncDepartment{
 			DN:       dn,
 			Name:     name,
@@ -176,6 +212,11 @@ func (c *Client) searchAllUsers(conn *ldap.Conn) ([]*SyncUser, error) {
 		}
 
 		dn := entry.DN
+		// Only include users that are under the allowed top-level OUs.
+		if !isUnderAllowedOU(dn) {
+			continue
+		}
+
 		primaryDeptDN := primaryDepartmentFromDN(dn)
 
 		users = append(users, &SyncUser{

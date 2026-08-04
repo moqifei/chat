@@ -27,11 +27,17 @@ const (
 	ReplySourceStatic                  = "static"
 	ReplySourceHTTPGenerator           = "http_generator"
 	ReplySourceHTTPGeneratorFallback   = "http_generator_fallback"
-	defaultGeneratorTimeout            = 10 * time.Second
+	// 数字分身回复走 Orange 的同步 agent loop（可能多轮工具调用），
+	// 复杂查询会跑 30~60s 以上，默认超时必须足够大，否则 chat 侧 HTTP 超时
+	// 取消请求并触发 `context deadline exceeded` 兜底。
+	defaultGeneratorTimeout            = 120 * time.Second
 	maxGeneratorResponsePreviewBytes   = 512
 	// 技能相关接口（列表/任务状态）可能返回较大响应体（如完整 SKILL.md 内容），
 	// 允许读取到 8MB，避免被 LimitReader 截断导致 JSON 解码 unexpected EOF。
 	maxSkillResponseBytes              = 8 * 1024 * 1024
+	// 分身回复文本本身也可能很长（如查询结果、长段落），放宽到 8MB，
+	// 避免被 LimitReader 截断导致 JSON 解码 unexpected EOF。
+	maxGeneratorReplyBytes             = 8 * 1024 * 1024
 	generatorResponseContentTypeHeader = "Content-Type"
 )
 
@@ -42,14 +48,15 @@ type GeneratorConfig struct {
 }
 
 type GeneratorRequest struct {
-	OwnerUserID       string `json:"ownerUserID"`
-	SenderUserID      string `json:"senderUserID"`
-	MessageContent    string `json:"messageContent"`
-	FallbackReplyText string `json:"fallbackReplyText"`
-	Prompt            string `json:"prompt,omitempty"`
-	ServerMsgID       string `json:"serverMsgID,omitempty"`
-	ClientMsgID       string `json:"clientMsgID,omitempty"`
-	OperationID       string `json:"operationID,omitempty"`
+	OwnerUserID       string                  `json:"ownerUserID"`
+	SenderUserID      string                  `json:"senderUserID"`
+	MessageContent    string                  `json:"messageContent"`
+	FallbackReplyText string                  `json:"fallbackReplyText"`
+	Prompt            string                  `json:"prompt,omitempty"`
+	ServerMsgID       string                  `json:"serverMsgID,omitempty"`
+	ClientMsgID       string                  `json:"clientMsgID,omitempty"`
+	OperationID       string                  `json:"operationID,omitempty"`
+	KnowledgeBase     *KnowledgeBaseConfig   `json:"knowledgeBase,omitempty"`
 }
 
 type GeneratorResponse struct {
@@ -59,6 +66,7 @@ type GeneratorResponse struct {
 	ProtocolSource string         `json:"protocolSource,omitempty"`
 	FinalizeSource string         `json:"finalizeSource,omitempty"`
 	Metadata       map[string]any `json:"metadata,omitempty"`
+	Citations      []map[string]any `json:"citations,omitempty"`
 }
 
 type ReplyPlan struct {
@@ -66,6 +74,7 @@ type ReplyPlan struct {
 	Source         string
 	Trace          *ReplyTrace
 	GeneratorError string
+	Citations      []map[string]any
 }
 
 func LoadGeneratorConfigFromEnv() GeneratorConfig {
@@ -105,9 +114,10 @@ func BuildReplyPlan(ctx context.Context, req imwebhook.CallbackAfterSendSingleMs
 		}
 	}
 	return ReplyPlan{
-		Content: reply,
-		Source:  ReplySourceHTTPGenerator,
-		Trace:   genResp.Trace(),
+		Content:   reply,
+		Source:    ReplySourceHTTPGenerator,
+		Trace:     genResp.Trace(),
+		Citations: genResp.Citations,
 	}
 }
 
@@ -136,6 +146,7 @@ func CallHTTPGeneratorResponse(ctx context.Context, client *http.Client, genCfg 
 		ServerMsgID:       req.ServerMsgID,
 		ClientMsgID:       req.ClientMsgID,
 		OperationID:       req.OperationID,
+		KnowledgeBase:     cfg.KnowledgeBase,
 	})
 	if err != nil {
 		return GeneratorResponse{}, err
@@ -161,7 +172,7 @@ func CallHTTPGeneratorResponse(ctx context.Context, client *http.Client, genCfg 
 		return GeneratorResponse{}, errGeneratorStatus(resp.StatusCode, string(preview))
 	}
 	var genResp GeneratorResponse
-	decoder := json.NewDecoder(io.LimitReader(resp.Body, maxGeneratorResponsePreviewBytes*16))
+	decoder := json.NewDecoder(io.LimitReader(resp.Body, maxGeneratorReplyBytes))
 	if err := decoder.Decode(&genResp); err != nil {
 		return GeneratorResponse{}, err
 	}

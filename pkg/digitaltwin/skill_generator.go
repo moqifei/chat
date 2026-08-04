@@ -24,6 +24,7 @@ const (
 	orangeDigitalTwinSkillList = "/api/v1/digital-twin/skills/list"
 	orangeDigitalTwinSkillDel  = "/api/v1/digital-twin/skills/delete"
 	orangeDigitalTwinSkillGet  = "/api/v1/digital-twin/skills/get"
+	orangeDigitalTwinStats     = "/api/v1/digital-twin/stats"
 	plazaGetAllSkillPath       = "/api/get_all_skill"
 	PlazaDownloadSkillPath     = "/api/download_skill"
 )
@@ -89,6 +90,23 @@ type SkillGetResponse struct {
 	SkillPath   string `json:"skillPath"`
 	UpdatedAt   int64  `json:"updatedAt,omitempty"`
 	Content     string `json:"content"`
+}
+
+type SkillOwnerStat struct {
+	OwnerUserID   string   `json:"ownerUserID"`
+	WorkspacePath string   `json:"workspacePath"`
+	SkillCount    int      `json:"skillCount"`
+	SkillNames    []string `json:"skillNames"`
+	HasMemory     bool     `json:"hasMemory"`
+	LastActiveAt  int64    `json:"lastActiveAt,omitempty"`
+}
+
+type SkillStatsResponse struct {
+	TotalOwners            int              `json:"totalOwners"`
+	TotalSkills            int              `json:"totalSkills"`
+	AverageSkillsPerOwner  float64          `json:"averageSkillsPerOwner"`
+	Owners                 []SkillOwnerStat `json:"owners"`
+	TopOwners              []SkillOwnerStat `json:"topOwners"`
 }
 
 // --- Async skill-generation task types ---
@@ -312,7 +330,8 @@ func normalizeSkillURL(raw string, targetPath string) string {
 		return raw
 	case "":
 		parsed.Path = targetPath
-	case "/api/v1", orangeDigitalTwinPath, orangeDigitalTwinSkillGen, orangeDigitalTwinSkillList, orangeDigitalTwinSkillDel:
+	case "/api/v1", orangeDigitalTwinPath, orangeDigitalTwinSkillGen, orangeDigitalTwinSkillList,
+		orangeDigitalTwinSkillDel, orangeKBSpacesPath, orangeKBIndexPath, orangeKBSearchPath:
 		parsed.Path = targetPath
 	default:
 		return raw
@@ -479,6 +498,21 @@ func CallHTTPSkillGet(ctx context.Context, client *http.Client, genCfg Generator
 	var resp SkillGetResponse
 	if err := callHTTPSkillEndpoint(ctx, client, genCfg, req, &resp); err != nil {
 		return SkillGetResponse{}, err
+	}
+	return resp, nil
+}
+
+func LoadSkillStatsConfigFromEnv() GeneratorConfig {
+	cfg := LoadSkillGeneratorConfigFromEnv()
+	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL)), orangeDigitalTwinStats)
+	return cfg
+}
+
+func CallHTTPSkillStats(ctx context.Context, client *http.Client, genCfg GeneratorConfig) (SkillStatsResponse, error) {
+	var resp SkillStatsResponse
+	// 统计接口不需要请求体，orange 侧仅校验鉴权头。
+	if err := callHTTPSkillEndpoint(ctx, client, genCfg, nil, &resp); err != nil {
+		return SkillStatsResponse{}, err
 	}
 	return resp, nil
 }

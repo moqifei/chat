@@ -41,6 +41,8 @@ type Config struct {
 	BlockedSenderUserIDs map[string]struct{}
 	TriggerMode          string
 	UnreadTimeoutSeconds int64
+	// Knowledge base configuration for AI-enhanced replies
+	KnowledgeBase *KnowledgeBaseConfig
 }
 
 type UserConfig struct {
@@ -53,6 +55,7 @@ type UserConfig struct {
 	BlockedSenderUserIDs []string      `json:"blockedSenderUserIDs,omitempty"`
 	TriggerMode          string        `json:"triggerMode,omitempty"`
 	UnreadTimeoutSeconds int64         `json:"unreadTimeoutSeconds,omitempty"`
+	KnowledgeBase        *KnowledgeBaseConfig `json:"knowledgeBase,omitempty"`
 	Version              int           `json:"version"`
 	UpdatedAt            int64         `json:"updatedAt"`
 }
@@ -64,16 +67,32 @@ type ReplySchedule struct {
 	Timezone    string `json:"timezone,omitempty"`
 }
 
+// KnowledgeBaseConfig holds knowledge base enhancement settings for digital twin.
+// When enabled, the AI reply generation can reference documents from configured
+// Arkon wiki spaces via semantic search.
+type KnowledgeBaseConfig struct {
+	Enabled             bool     `json:"enabled"`
+	SpaceIDs            []string `json:"spaceIds,omitempty"`
+	AnswerStrategy      string   `json:"answerStrategy,omitempty"`       // auto_search | knowledge_only | no_fabricate
+	CitationStyle       string   `json:"citationStyle,omitempty"`        // always_show | knowledge_only
+	PermissionStrategy  string   `json:"permissionStrategy,omitempty"`   // authorized_only | summary_on_no_access
+	SensitiveNoAutoReply bool    `json:"sensitiveNoAutoReply"`
+	// Arkon knowledge base API base URL (e.g. http://localhost:8478). Injected by
+	// the chat server from OPENIM_KB_BASE_URL; the client does not set this.
+	BaseURL string `json:"baseURL,omitempty"`
+}
+
 type UserConfigPatch struct {
-	Enabled              *bool          `json:"enabled"`
-	ReplyText            *string        `json:"replyText"`
-	Prompt               *string        `json:"prompt"`
-	ReplyCooldownSeconds *int64         `json:"replyCooldownSeconds"`
-	ReplySchedule        *ReplySchedule `json:"replySchedule"`
-	AllowedSenderUserIDs *[]string      `json:"allowedSenderUserIDs"`
-	BlockedSenderUserIDs *[]string      `json:"blockedSenderUserIDs"`
-	TriggerMode          *string        `json:"triggerMode"`
-	UnreadTimeoutSeconds *int64         `json:"unreadTimeoutSeconds"`
+	Enabled              *bool                  `json:"enabled"`
+	ReplyText            *string                `json:"replyText"`
+	Prompt               *string                `json:"prompt"`
+	ReplyCooldownSeconds *int64                 `json:"replyCooldownSeconds"`
+	ReplySchedule        *ReplySchedule         `json:"replySchedule"`
+	AllowedSenderUserIDs *[]string              `json:"allowedSenderUserIDs"`
+	BlockedSenderUserIDs *[]string              `json:"blockedSenderUserIDs"`
+	TriggerMode          *string                `json:"triggerMode"`
+	UnreadTimeoutSeconds *int64                 `json:"unreadTimeoutSeconds"`
+	KnowledgeBase        *KnowledgeBaseConfig  `json:"knowledgeBase"`
 }
 
 type Decision struct {
@@ -82,18 +101,19 @@ type Decision struct {
 }
 
 type ReplyExt struct {
-	OpenIMExtType      string      `json:"openim_ext_type"`
-	Version            int         `json:"version"`
-	OwnerUserID        string      `json:"ownerUserID"`
-	TriggerSendID      string      `json:"triggerSendID"`
-	TriggerServerMsgID string      `json:"triggerServerMsgID,omitempty"`
-	TriggerClientMsgID string      `json:"triggerClientMsgID,omitempty"`
-	GeneratedBy        string      `json:"generatedBy"`
-	ReplySource        string      `json:"replySource"`
-	ReplyText          string      `json:"replyText,omitempty"`
-	GeneratorError     string      `json:"generatorError,omitempty"`
-	CreatedAt          int64       `json:"createdAt"`
-	Trace              *ReplyTrace `json:"openim_digital_twin_trace,omitempty"`
+	OpenIMExtType      string           `json:"openim_ext_type"`
+	Version            int              `json:"version"`
+	OwnerUserID        string           `json:"ownerUserID"`
+	TriggerSendID      string           `json:"triggerSendID"`
+	TriggerServerMsgID string           `json:"triggerServerMsgID,omitempty"`
+	TriggerClientMsgID string           `json:"triggerClientMsgID,omitempty"`
+	GeneratedBy        string           `json:"generatedBy"`
+	ReplySource        string           `json:"replySource"`
+	ReplyText          string           `json:"replyText,omitempty"`
+	GeneratorError     string           `json:"generatorError,omitempty"`
+	CreatedAt          int64            `json:"createdAt"`
+	Trace              *ReplyTrace      `json:"openim_digital_twin_trace,omitempty"`
+	Citations          []map[string]any `json:"citations,omitempty"`
 }
 
 type ReplyTrace struct {
@@ -147,6 +167,7 @@ func ConfigFromUserConfig(userID string, userCfg UserConfig) Config {
 		BlockedSenderUserIDs: userIDSet(normalizeUserIDList(userCfg.BlockedSenderUserIDs)),
 		TriggerMode:          normalizeTriggerMode(userCfg.TriggerMode),
 		UnreadTimeoutSeconds: normalizeUnreadTimeoutSeconds(userCfg.UnreadTimeoutSeconds),
+		KnowledgeBase:        normalizeKnowledgeBase(userCfg.KnowledgeBase),
 	}
 	if cfg.ReplyText == "" {
 		cfg.ReplyText = defaultReplyText
@@ -181,6 +202,9 @@ func ApplyUserConfigPatch(cfg UserConfig, patch UserConfigPatch) UserConfig {
 	}
 	if patch.UnreadTimeoutSeconds != nil {
 		cfg.UnreadTimeoutSeconds = normalizeUnreadTimeoutSeconds(*patch.UnreadTimeoutSeconds)
+	}
+	if patch.KnowledgeBase != nil {
+		cfg.KnowledgeBase = patch.KnowledgeBase
 	}
 	return cfg
 }
@@ -274,10 +298,10 @@ func BuildReplyExWithSourceAndTrace(req imwebhook.CallbackAfterSendSingleMsgReq,
 }
 
 func BuildReplyExWithSourceTraceAndText(req imwebhook.CallbackAfterSendSingleMsgReq, now time.Time, replySource string, trace *ReplyTrace, replyText string) (string, error) {
-	return BuildReplyExWithSourceTraceTextAndError(req, now, replySource, trace, replyText, "")
+	return BuildReplyExWithSourceTraceTextAndError(req, now, replySource, trace, replyText, "", nil)
 }
 
-func BuildReplyExWithSourceTraceTextAndError(req imwebhook.CallbackAfterSendSingleMsgReq, now time.Time, replySource string, trace *ReplyTrace, replyText string, generatorError string) (string, error) {
+func BuildReplyExWithSourceTraceTextAndError(req imwebhook.CallbackAfterSendSingleMsgReq, now time.Time, replySource string, trace *ReplyTrace, replyText string, generatorError string, citations []map[string]any) (string, error) {
 	if strings.TrimSpace(replySource) == "" {
 		replySource = ReplySourceStatic
 	}
@@ -294,6 +318,7 @@ func BuildReplyExWithSourceTraceTextAndError(req imwebhook.CallbackAfterSendSing
 		GeneratorError:     strings.TrimSpace(generatorError),
 		CreatedAt:          now.UnixMilli(),
 		Trace:              trace,
+		Citations:          citations,
 	})
 	if err != nil {
 		return "", err
@@ -394,4 +419,25 @@ func userIDSet(userIDs []string) map[string]struct{} {
 		set[userID] = struct{}{}
 	}
 	return set
+}
+
+// EnvKbBaseURL points the chat server at the Arkon knowledge base (or local mock)
+// API. It is forwarded to orange's digital-twin generator so the
+// knowledge_base_search tool can reach the right endpoint.
+const EnvKbBaseURL = "OPENIM_KB_BASE_URL"
+
+// normalizeKnowledgeBase ensures the base URL is populated from the environment
+// when absent, so orange always has a concrete Arkon endpoint to query. Falls
+// back to the local mock server when the env var is unset (local dev).
+func normalizeKnowledgeBase(kb *KnowledgeBaseConfig) *KnowledgeBaseConfig {
+	if kb == nil {
+		return nil
+	}
+	if kb.BaseURL == "" {
+		kb.BaseURL = strings.TrimSpace(os.Getenv(EnvKbBaseURL))
+	}
+	if kb.BaseURL == "" {
+		kb.BaseURL = "http://localhost:8478"
+	}
+	return kb
 }
