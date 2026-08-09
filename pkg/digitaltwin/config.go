@@ -80,6 +80,14 @@ type KnowledgeBaseConfig struct {
 	// Arkon knowledge base API base URL (e.g. http://localhost:8478). Injected by
 	// the chat server from OPENIM_KB_BASE_URL; the client does not set this.
 	BaseURL string `json:"baseURL,omitempty"`
+	// Similarity threshold (0-1): results with similarity >= this value trigger a
+	// full page read (aiknowledge-read-wiki-page) so the client can expand detail.
+	// *float64 is used so a nil value means "not configured by the user" and orange
+	// falls back to its own static config; a present value (incl. 0) overrides it.
+	SimilarityThreshold *float64 `json:"similarityThreshold,omitempty"`
+	// Max number of search results to return (overrides orange's configured
+	// search_limit when set). *int keeps the "not configured" vs "set to 0" distinction.
+	SearchLimit *int `json:"searchLimit,omitempty"`
 }
 
 type UserConfigPatch struct {

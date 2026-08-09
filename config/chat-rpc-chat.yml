@@ -42,8 +42,8 @@ allowRegister: true
 ad:
   enable: true
   # LDAP server URL (ldap:// or ldaps://)
-  #serverURL: "ldap://172.17.0.2:389"
-  serverURL: "ldap://172.20.0.73:389"
+  serverURL: "ldap://172.17.0.2:389"
+  #serverURL: "ldap://172.20.0.73:389"
   # Base DN for user search (e.g. DC=example,DC=com)
   #baseDN: "dc=test,dc=bx"
   baseDN: "OU=中信百信银行,DC=qa,DC=bx"
@@ -53,19 +53,19 @@ ad:
   #userDN: "CN=%s,OU=中信百信银行,DC=qa,DC=bx"
   userDN: ""
   # Service account DN for search-based authentication (optional if userDN is set)
-  bindDN: "AiSecCenter@qa.bx"
-  #bindDN: "CN=yejunjiao,DC=qa,DC=bx"
+  #bindDN: "AiSecCenter@qa.bx"
+  bindDN: "cn=admin,dc=qa,dc=bx"
   #bindDN: ""
   # Service account password
-  bindPassword: "Thanatos1!"
-  #bindPassword: ""
+  #bindPassword: "Thanatos1!"
+  bindPassword: "admin@123"
   # LDAP filter for locating the user (e.g. "(sAMAccountName=%s)").
   # %s is replaced with the username. Defaults to "(sAMAccountName=%s)" if empty.
-  #userFilter: "(uid=%s)"
-  userFilter: "(sAMAccountName=%s)"
+  userFilter: "(cn=%s)"
+  #userFilter: "(sAMAccountName=%s)"
   # LDAP attribute mapped to OpenIM username (default: "sAMAccountName")
-  #usernameAttribute: "uid"
-  usernameAttribute: "sAMAccountName"
+  usernameAttribute: "cn"
+  #usernameAttribute: "sAMAccountName"
   # LDAP attribute mapped to email (default: "mail")
   emailAttribute: "mail"
   # LDAP attribute mapped to display name (default: "displayName")
