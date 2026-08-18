@@ -3,12 +3,15 @@ package digitaltwin
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/openimsdk/chat/pkg/botstruct"
 	"github.com/openimsdk/chat/pkg/common/imwebhook"
 	"github.com/openimsdk/protocol/constant"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -432,14 +435,89 @@ func userIDSet(userIDs []string) map[string]struct{} {
 // EnvKbBaseURL points the chat server at the Arkon knowledge base (or local mock)
 // API. It is forwarded to orange's digital-twin generator so the
 // knowledge_base_search tool can reach the right endpoint.
+// [标准化部署] 该值已固化到 chat/config/digital_twin.yml 的 knowledgeBase.baseURL,
+// 启动时由 loadDigitalTwinFile() 优先从配置文件读取, 此处仅作为兜底。
 const EnvKbBaseURL = "OPENIM_KB_BASE_URL"
 
-// normalizeKnowledgeBase ensures the base URL is populated from the environment
-// when absent, so orange always has a concrete Arkon endpoint to query. Falls
-// back to the local mock server when the env var is unset (local dev).
+// DigitalTwinConfigFileName is the config file holding digital-twin / knowledge
+// base endpoints. In Kubernetes it is mounted under CONFIG_PATH (MountConfigFilePath)
+// by the apollo config center and overrides the bundled file.
+const DigitalTwinConfigFileName = "digital_twin.yml"
+
+// digitalTwinFileConfig mirrors the structure of digital_twin.yml.
+type digitalTwinFileConfig struct {
+	Generator      digitalTwinFileGenerator  `mapstructure:"generator"`
+	SkillGenerator digitalTwinFileEndpoint   `mapstructure:"skillGenerator"`
+	SkillPlaza     digitalTwinFileEndpoint   `mapstructure:"skillPlaza"`
+	KnowledgeBase  digitalTwinFileKB         `mapstructure:"knowledgeBase"`
+}
+
+type digitalTwinFileGenerator struct {
+	URL        string `mapstructure:"url"`
+	Token      string `mapstructure:"token"`
+	TimeoutSec int    `mapstructure:"timeoutSec"`
+}
+
+type digitalTwinFileEndpoint struct {
+	URL string `mapstructure:"url"`
+}
+
+type digitalTwinFileKB struct {
+	BaseURL string `mapstructure:"baseURL"`
+}
+
+var (
+	digitalTwinFileOnce sync.Once
+	digitalTwinFileVal *digitalTwinFileConfig
+)
+
+// DigitalTwinFile returns the digital-twin config loaded from digital_twin.yml.
+// It is read lazily and cached. In Kubernetes the file is mounted under
+// CONFIG_PATH; otherwise fall back to the bundled config file relative to the
+// working directory or the chat module.
+func DigitalTwinFile() *digitalTwinFileConfig {
+	digitalTwinFileOnce.Do(func() {
+		digitalTwinFileVal = loadDigitalTwinFile()
+	})
+	return digitalTwinFileVal
+}
+
+func loadDigitalTwinFile() *digitalTwinFileConfig {
+	candidates := []string{}
+	if mount := os.Getenv("CONFIG_PATH"); mount != "" {
+		candidates = append(candidates, filepath.Join(mount, DigitalTwinConfigFileName))
+	}
+	candidates = append(candidates,
+		DigitalTwinConfigFileName,
+		filepath.Join("config", DigitalTwinConfigFileName),
+		filepath.Join("..", "..", "config", DigitalTwinConfigFileName),
+	)
+
+	cfg := &digitalTwinFileConfig{}
+	for _, path := range candidates {
+		v := viper.New()
+		v.SetConfigFile(path)
+		if err := v.ReadInConfig(); err != nil {
+			continue
+		}
+		_ = v.Unmarshal(cfg)
+		break
+	}
+	return cfg
+}
+
+// normalizeKnowledgeBase ensures the base URL is populated from the bundled
+// digital_twin.yml config file when absent, so orange always has a concrete Arkon
+// endpoint to query. Falls back to the environment variable (for backwards
+// compatibility) and finally to the local mock server when unset.
 func normalizeKnowledgeBase(kb *KnowledgeBaseConfig) *KnowledgeBaseConfig {
 	if kb == nil {
 		return nil
+	}
+	if kb.BaseURL == "" {
+		if f := DigitalTwinFile(); f != nil {
+			kb.BaseURL = strings.TrimSpace(f.KnowledgeBase.BaseURL)
+		}
 	}
 	if kb.BaseURL == "" {
 		kb.BaseURL = strings.TrimSpace(os.Getenv(EnvKbBaseURL))

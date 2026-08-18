@@ -1,0 +1,42 @@
+# =====================================================================
+# 数字分身 (digital twin) / 知识库 (knowledge base) 配置
+#
+# [标准化部署] 原由 docker-compose 通过环境变量注入:
+#   OPENIM_DIGITAL_TWIN_GENERATOR_URL
+#   OPENIM_DIGITAL_TWIN_GENERATOR_TOKEN
+#   OPENIM_DIGITAL_TWIN_GENERATOR_TIMEOUT_SEC
+#   OPENIM_DIGITAL_TWIN_SKILL_GENERATOR_URL
+#   OPENIM_DIGITAL_TWIN_SKILL_PLAZA_URL
+#   OPENIM_KB_BASE_URL
+# 现统一固化到本配置文件。在 Kubernetes 部署时由 apollo 配置中心下发,
+# 挂载到 CONFIG_PATH (环境变量 MountConfigFilePath) 目录下覆盖本文件。
+# 启动逻辑优先读取本配置文件, 不再依赖 docker-compose / .env 注入。
+# =====================================================================
+
+# 数字分身生成器
+generator:
+  # 对应 OPENIM_DIGITAL_TWIN_GENERATOR_URL (原 docker-compose 值)
+  # 注意路径后缀 /reply 不可省略, normalizeGeneratorURL 仅原样透传完整路径
+  # chat 运行在容器内, 通过 host.docker.internal 访问宿主机上的 orange 服务
+  url: "http://host.docker.internal:3000/api/v1/digital-twin/reply"
+  # 对应 OPENIM_DIGITAL_TWIN_GENERATOR_TOKEN (原 docker-compose 值)
+  token: "optional-token"
+  # 对应 OPENIM_DIGITAL_TWIN_GENERATOR_TIMEOUT_SEC (原 docker-compose 值)
+  timeoutSec: 390
+
+# 技能生成器
+skillGenerator:
+  # 对应 OPENIM_DIGITAL_TWIN_SKILL_GENERATOR_URL (原 docker-compose 值)
+  # 注意路径后缀 /skills/generate 不可省略
+  url: "http://host.docker.internal:3000/api/v1/digital-twin/skills/generate"
+
+# 技能广场
+skillPlaza:
+  # 对应 OPENIM_DIGITAL_TWIN_SKILL_PLAZA_URL (原 docker-compose 值)
+  # 注意: 端口是 9876 (独立服务), 非 3000
+  url: "http://host.docker.internal:9876"
+
+# 知识库
+knowledgeBase:
+  # 对应 OPENIM_KB_BASE_URL (原 docker-compose 值)
+  baseURL: "http://host.docker.internal:8478"

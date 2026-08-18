@@ -78,6 +78,22 @@ type ReplyPlan struct {
 }
 
 func LoadGeneratorConfigFromEnv() GeneratorConfig {
+	// [标准化部署] 优先从 chat/config/digital_twin.yml 读取, 不再依赖 docker-compose 注入。
+	if f := DigitalTwinFile(); f != nil {
+		url := normalizeGeneratorURL(strings.TrimSpace(f.Generator.URL))
+		if url != "" {
+			timeout := defaultGeneratorTimeout
+			if f.Generator.TimeoutSec > 0 {
+				timeout = time.Duration(f.Generator.TimeoutSec) * time.Second
+			}
+			return GeneratorConfig{
+				URL:     url,
+				Token:   strings.TrimSpace(f.Generator.Token),
+				Timeout: timeout,
+			}
+		}
+	}
+	// 兜底: 兼容旧的环境变量注入方式
 	cfg := GeneratorConfig{
 		URL:     normalizeGeneratorURL(os.Getenv(EnvGeneratorURL)),
 		Token:   strings.TrimSpace(firstNonEmpty(os.Getenv(EnvGeneratorToken), os.Getenv(EnvOrangeTwinToken))),

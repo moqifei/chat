@@ -41,30 +41,31 @@ allowRegister: true
 # AD login coexists with existing password/verification-code login as a backup.
 ad:
   enable: true
-  # =====================================================================
-  # 以下 6 项 (serverURL / baseDN / bindDN / bindPassword / userFilter /
-  # usernameAttribute) 因本地、测试、生产环境不同，已抽取到 docker-compose
-  # 的环境变量 CHATENV_CHAT_RPC_CHAT_AD_* 中（定义在 openim-docker/.env），
-  # 由 viper 在运行时覆盖本文件的值。打一个包即可适配多环境。
-  # 此处仅保留占位默认值，真实值由部署环境的环境变量决定。
-  # =====================================================================
   # LDAP server URL (ldap:// or ldaps://)
-  serverURL: ""
+  serverURL: "ldap://172.17.0.2:389"
+  #serverURL: "ldap://172.20.0.73:389"
   # Base DN for user search (e.g. DC=example,DC=com)
-  baseDN: ""
+  #baseDN: "dc=test,dc=bx"
+  baseDN: "OU=中信百信银行,DC=qa,DC=bx"
   # Direct bind template: "CN=%s,OU=Users,DC=example,DC=com"
   # When set, %s is replaced with the username and the server tries a direct bind.
   # When empty, search-based auth is used (requires bindDN / bindPassword).
+  #userDN: "CN=%s,OU=中信百信银行,DC=qa,DC=bx"
   userDN: ""
   # Service account DN for search-based authentication (optional if userDN is set)
-  bindDN: ""
+  #bindDN: "AiSecCenter@qa.bx"
+  bindDN: "cn=admin,dc=qa,dc=bx"
+  #bindDN: ""
   # Service account password
-  bindPassword: ""
+  #bindPassword: "Thanatos1!"
+  bindPassword: "admin@123"
   # LDAP filter for locating the user (e.g. "(sAMAccountName=%s)").
   # %s is replaced with the username. Defaults to "(sAMAccountName=%s)" if empty.
-  userFilter: ""
+  userFilter: "(cn=%s)"
+  #userFilter: "(sAMAccountName=%s)"
   # LDAP attribute mapped to OpenIM username (default: "sAMAccountName")
-  usernameAttribute: ""
+  usernameAttribute: "cn"
+  #usernameAttribute: "sAMAccountName"
   # LDAP attribute mapped to email (default: "mail")
   emailAttribute: "mail"
   # LDAP attribute mapped to display name (default: "displayName")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strings"
 )
 
 // Knowledge base endpoints exposed by Orange.
@@ -27,12 +28,19 @@ const (
 // loadKBConfig builds the Orange call config for a knowledge base endpoint.
 // Returns an empty URL when Orange is not configured, letting callers fall back
 // to a direct knowledge base call.
+// [标准化部署] 优先使用 LoadGeneratorConfigFromEnv 返回的文件配置 URL
+// (chat/config/digital_twin.yml), 仅在未配置时才回退到环境变量拼接。
 func loadKBConfig(targetPath string) GeneratorConfig {
 	cfg := LoadGeneratorConfigFromEnv()
-	cfg.URL = normalizeSkillURL(
-		firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL)),
-		targetPath,
-	)
+	if cfg.URL == "" {
+		cfg.URL = normalizeSkillURL(
+			firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL)),
+			targetPath,
+		)
+	} else if targetPath != "" {
+		// 文件已配置基础 URL, 仅追加知识库子路径
+		cfg.URL = strings.TrimRight(cfg.URL, "/") + targetPath
+	}
 	return cfg
 }
 

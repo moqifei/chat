@@ -1100,6 +1100,12 @@ func (o *Api) KnowledgeSearch(c *gin.Context) {
 }
 
 func resolveKBBaseURL() string {
+	// [标准化部署] 优先从 chat/config/digital_twin.yml 的 knowledgeBase.baseURL 读取
+	if f := digitaltwin.DigitalTwinFile(); f != nil {
+		if base := strings.TrimSpace(f.KnowledgeBase.BaseURL); base != "" {
+			return base
+		}
+	}
 	return strings.TrimSpace(os.Getenv(EnvKbBaseURL))
 }
 

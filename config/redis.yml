@@ -1,5 +1,6 @@
 # List of Redis server addresses
-address: [ localhost:16379 ]
+# [标准化部署] 原由 docker-compose CHATENV_REDIS_ADDRESS 注入 (${REDIS_ADDRESS}=redis:6379)
+address: [ redis:6379 ]
 # Username for Redis authentication (leave blank if not used)
 username: ''
 # Password for Redis authentication

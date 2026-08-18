@@ -1,7 +1,8 @@
 enable: "etcd"
 etcd:
   rootDirectory: openim
-  address: [ localhost:12379 ]
+  # [标准化部署] 原由 docker-compose CHATENV_DISCOVERY_ETCD_ADDRESS 注入，现固化到配置文件
+  address: [ etcd:2379 ]
   username: ''
   password: ''
 
