@@ -171,13 +171,16 @@ func LoadSkillGeneratorConfigFromEnv() GeneratorConfig {
 
 func LoadSkillListConfigFromEnv() GeneratorConfig {
 	cfg := LoadSkillGeneratorConfigFromEnv()
-	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL)), orangeDigitalTwinSkillList)
+	// 与生成技能保持一致: 优先使用配置文件已算好的 cfg.URL, 环境变量仅作兜底。
+	// 否则在未注入环境变量、仅挂载 digital_twin.yml 的部署下 URL 会为空, 导致查询失败。
+	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL), cfg.URL), orangeDigitalTwinSkillList)
 	return cfg
 }
 
 func LoadSkillDeleteConfigFromEnv() GeneratorConfig {
 	cfg := LoadSkillGeneratorConfigFromEnv()
-	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL)), orangeDigitalTwinSkillDel)
+	// 与生成技能保持一致: 优先使用配置文件已算好的 cfg.URL, 环境变量仅作兜底。
+	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL), cfg.URL), orangeDigitalTwinSkillDel)
 	return cfg
 }
 
@@ -519,7 +522,8 @@ func CallHTTPPlazaDownload(ctx context.Context, client *http.Client, genCfg Gene
 
 func LoadSkillGetConfigFromEnv() GeneratorConfig {
 	cfg := LoadSkillGeneratorConfigFromEnv()
-	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL)), orangeDigitalTwinSkillGet)
+	// 与生成技能保持一致: 优先使用配置文件已算好的 cfg.URL, 环境变量仅作兜底。
+	cfg.URL = normalizeSkillURL(firstNonEmpty(os.Getenv(EnvSkillGeneratorURL), os.Getenv(EnvGeneratorURL), cfg.URL), orangeDigitalTwinSkillGet)
 	return cfg
 }
 
