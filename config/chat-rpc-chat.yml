@@ -36,6 +36,17 @@ liveKit:
 
 allowRegister: true
 
+digitalEmployee:
+  enable: false
+  baseURL: ""
+  sysID: "openIM"
+  cron: "10 2 * * *"
+  timeoutSeconds: 30
+  departmentID: "OU=数字员工,OU=ZXBXUsers,DC=qa,DC=bx"
+  departmentName: "数字员工"
+  defaultEmail: "12345678901@aiehr.com"
+  defaultPhone: "12345678901"
+
 # Microsoft Active Directory (LDAP) configuration
 # Set enable: true to turn on AD authentication.
 # AD login coexists with existing password/verification-code login as a backup.

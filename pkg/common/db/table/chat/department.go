@@ -40,6 +40,7 @@ type DepartmentInterface interface {
 	Create(ctx context.Context, depts []*Department) error
 	UpsertMany(ctx context.Context, depts []*Department) error
 	DeleteAll(ctx context.Context) error
+	DeleteAllExceptDepartmentID(ctx context.Context, departmentID string) error
 	Take(ctx context.Context, departmentID string) (*Department, error)
 	Find(ctx context.Context, departmentIDs []string) ([]*Department, error)
 	FindAll(ctx context.Context) ([]*Department, error)

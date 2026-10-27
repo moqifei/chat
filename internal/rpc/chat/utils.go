@@ -69,6 +69,10 @@ func BuildCredentialAD(username string) string {
 	return "ad:" + username
 }
 
+func BuildCredentialDigitalEmployee(employeeCode string) string {
+	return "de:" + employeeCode
+}
+
 func (o *chatSvr) checkRegisterInfo(ctx context.Context, user *chat.RegisterUserInfo, isAdmin bool) error {
 	if user == nil {
 		return errs.ErrArgs.WrapMsg("user is nil")

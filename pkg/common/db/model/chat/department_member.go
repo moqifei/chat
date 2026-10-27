@@ -79,6 +79,11 @@ func (o *DepartmentMember) DeleteAll(ctx context.Context) error {
 	return errs.Wrap(err)
 }
 
+func (o *DepartmentMember) DeleteAllExceptDepartmentID(ctx context.Context, departmentID string) error {
+	_, err := o.coll.DeleteMany(ctx, bson.M{"department_id": bson.M{"$ne": departmentID}})
+	return errs.Wrap(err)
+}
+
 func (o *DepartmentMember) DeleteByDepartmentID(ctx context.Context, departmentID string) error {
 	_, err := o.coll.DeleteMany(ctx, bson.M{"department_id": departmentID})
 	return errs.Wrap(err)

@@ -140,7 +140,13 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 	log.ZInfo(ctx, "AD org sync: departments resolved", "total", len(dbDepts))
 
 	// Write departments.
-	if err := o.Database.GetDepartmentInterface().DeleteAll(ctx); err != nil {
+	deleteDepartments := o.Database.GetDepartmentInterface().DeleteAll
+	if o.DigitalEmployeeConfig.Enable {
+		deleteDepartments = func(ctx context.Context) error {
+			return o.Database.GetDepartmentInterface().DeleteAllExceptDepartmentID(ctx, o.DigitalEmployeeConfig.DepartmentID)
+		}
+	}
+	if err := deleteDepartments(ctx); err != nil {
 		log.ZError(ctx, "AD org sync: failed to clear old departments", err)
 		return
 	}
@@ -221,7 +227,13 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 	}
 
 	// Write members.
-	if err := o.Database.GetDepartmentMemberInterface().DeleteAll(ctx); err != nil {
+	deleteMembers := o.Database.GetDepartmentMemberInterface().DeleteAll
+	if o.DigitalEmployeeConfig.Enable {
+		deleteMembers = func(ctx context.Context) error {
+			return o.Database.GetDepartmentMemberInterface().DeleteAllExceptDepartmentID(ctx, o.DigitalEmployeeConfig.DepartmentID)
+		}
+	}
+	if err := deleteMembers(ctx); err != nil {
 		log.ZError(ctx, "AD org sync: failed to clear old members", err)
 		return
 	}

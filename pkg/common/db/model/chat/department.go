@@ -75,6 +75,11 @@ func (o *Department) DeleteAll(ctx context.Context) error {
 	return errs.Wrap(err)
 }
 
+func (o *Department) DeleteAllExceptDepartmentID(ctx context.Context, departmentID string) error {
+	_, err := o.coll.DeleteMany(ctx, bson.M{"department_id": bson.M{"$ne": departmentID}})
+	return errs.Wrap(err)
+}
+
 func (o *Department) Take(ctx context.Context, departmentID string) (*chatdb.Department, error) {
 	return mongoutil.FindOne[*chatdb.Department](ctx, o.coll, bson.M{"department_id": departmentID})
 }

@@ -46,6 +46,7 @@ type DepartmentMemberInterface interface {
 	Create(ctx context.Context, members []*DepartmentMember) error
 	UpsertMany(ctx context.Context, members []*DepartmentMember) error
 	DeleteAll(ctx context.Context) error
+	DeleteAllExceptDepartmentID(ctx context.Context, departmentID string) error
 	DeleteByDepartmentID(ctx context.Context, departmentID string) error
 	Take(ctx context.Context, departmentID string, username string) (*DepartmentMember, error)
 	FindByDepartmentID(ctx context.Context, departmentID string, pagination pagination.Pagination) (int64, []*DepartmentMember, error)

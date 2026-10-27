@@ -104,6 +104,7 @@ const (
 	EmailRegister
 	PhoneRegister
 	ADRegister
+	DigitalEmployeeRegister
 )
 
 const (
@@ -118,6 +119,7 @@ const (
 	CredentialPhone
 	CredentialEmail
 	CredentialAD
+	CredentialDigitalEmployee
 )
 
 // verifyCode use

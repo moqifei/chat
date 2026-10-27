@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/openimsdk/chat/pkg/common/ad"
@@ -79,6 +80,7 @@ func Start(ctx context.Context, config *Config, client discovery.SvcDiscoveryReg
 	srv.IMCaller = imapi.New(config.Share.OpenIM.ApiURL, config.Share.OpenIM.Secret, config.Share.OpenIM.AdminUserID)
 	// Initialize Microsoft AD client if enabled
 	srv.ADConfig = config.RpcConfig.AD
+	srv.DigitalEmployeeConfig = digitalEmployeeConfigDefaults(config.RpcConfig.DigitalEmployee)
 	if srv.ADConfig.Enable {
 		srv.ADClient = ad.New(ad.Config{
 			Enable:              srv.ADConfig.Enable,
@@ -97,6 +99,8 @@ func Start(ctx context.Context, config *Config, client discovery.SvcDiscoveryReg
 	}
 	// Start AD organization sync scheduler (daily cron).
 	srv.startADSyncScheduler(ctx)
+	// Start digital employee sync only when explicitly enabled by environment config.
+	srv.startDigitalEmployeeSyncScheduler(ctx)
 	chat.RegisterChatServer(server, &srv)
 	return nil
 }
@@ -114,6 +118,8 @@ type chatSvr struct {
 	AllowRegister   bool
 	ADClient        *ad.Client
 	ADConfig        config.AD
+	DigitalEmployeeConfig  config.DigitalEmployee
+	digitalEmployeeSyncMu  sync.Mutex
 	IMCaller        imapi.CallerInterface
 }
 

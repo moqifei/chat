@@ -129,6 +129,19 @@ type Chat struct {
 	} `mapstructure:"liveKit"`
 	AllowRegister bool `mapstructure:"allowRegister"`
 	AD            AD   `mapstructure:"ad"`
+	DigitalEmployee DigitalEmployee `mapstructure:"digitalEmployee"`
+}
+
+type DigitalEmployee struct {
+	Enable          bool   `mapstructure:"enable"`
+	BaseURL         string `mapstructure:"baseURL"`
+	SysID           string `mapstructure:"sysID"`
+	Cron            string `mapstructure:"cron"`
+	TimeoutSeconds  int    `mapstructure:"timeoutSeconds"`
+	DepartmentID    string `mapstructure:"departmentID"`
+	DepartmentName  string `mapstructure:"departmentName"`
+	DefaultEmail    string `mapstructure:"defaultEmail"`
+	DefaultPhone    string `mapstructure:"defaultPhone"`
 }
 
 type AD struct {

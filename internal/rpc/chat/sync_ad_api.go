@@ -175,6 +175,11 @@ func (o *chatSvr) SearchADMembers(ctx context.Context, req *chat.SearchADMembers
 //	resp, err := client.SyncADOrganization(ctx, &chat.SyncADOrganizationReq{})
 func (o *chatSvr) SyncADOrganization(ctx context.Context, req *chat.SyncADOrganizationReq) (*chat.SyncADOrganizationResp, error) {
 	o.runADSync(ctx)
+	if o.DigitalEmployeeConfig.Enable {
+		if err := o.runDigitalEmployeeSync(ctx); err != nil {
+			return nil, err
+		}
+	}
 
 	departments, err := o.Database.GetDepartmentInterface().FindAll(ctx)
 	if err != nil {
