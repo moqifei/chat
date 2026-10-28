@@ -4,3 +4,8 @@ api:
   # Listening ports; if multiple are configured, multiple instances will be launched
   ports: [ 10008 ]
 
+adLoginCrypto:
+  keyID: ad-login-aes-2026-01
+  sharedKey: XT/GDAy0Hus4SKeBYeZ58W8bSoR/yiZFOMkdTda/e0I=
+  challengeTTLSeconds: 60
+

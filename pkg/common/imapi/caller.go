@@ -2,6 +2,7 @@ package imapi
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -193,13 +194,15 @@ func (c *Caller) RegisterUser(ctx context.Context, users []*sdkws.UserInfo) erro
 }
 
 func (c *Caller) ForceOffLine(ctx context.Context, userID string) error {
+	var forceErr error
 	for id := range constant.PlatformID2Name {
-		_, _ = forceOffLine.Call(ctx, c.imApi, &auth.ForceLogoutReq{
+		_, err := forceOffLine.Call(ctx, c.imApi, &auth.ForceLogoutReq{
 			PlatformID: int32(id),
 			UserID:     userID,
 		})
+		forceErr = errors.Join(forceErr, err)
 	}
-	return nil
+	return forceErr
 }
 
 func (c *Caller) FindGroupInfo(ctx context.Context, groupIDs []string) ([]*sdkws.GroupInfo, error) {

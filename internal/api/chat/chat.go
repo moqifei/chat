@@ -36,13 +36,17 @@ import (
 	"github.com/openimsdk/tools/log"
 )
 
-func New(chatClient chatpb.ChatClient, adminClient admin.AdminClient, imApiCaller imapi.CallerInterface, api *util.Api) *Api {
-	return &Api{
+func New(chatClient chatpb.ChatClient, adminClient admin.AdminClient, imApiCaller imapi.CallerInterface, api *util.Api, adLoginCrypto ...*ADLoginCrypto) *Api {
+	o := &Api{
 		Api:         api,
 		chatClient:  chatClient,
 		adminClient: adminClient,
 		imApiCaller: imApiCaller,
 	}
+	if len(adLoginCrypto) > 0 {
+		o.adLoginCrypto = adLoginCrypto[0]
+	}
+	return o
 }
 
 type Api struct {
@@ -50,6 +54,7 @@ type Api struct {
 	chatClient  chatpb.ChatClient
 	adminClient admin.AdminClient
 	imApiCaller imapi.CallerInterface
+	adLoginCrypto *ADLoginCrypto
 }
 
 // ################## ACCOUNT ##################
@@ -194,6 +199,30 @@ func (o *Api) Login(c *gin.Context) {
 	})
 }
 
+// Logout invalidates every chat token and forces every IM platform offline.
+func (o *Api) Logout(c *gin.Context) {
+	userID := mctx.GetOpUserID(c)
+	if userID == "" {
+		apiresp.GinError(c, errs.ErrNoPermission.Wrap())
+		return
+	}
+	adminToken, err := o.imApiCaller.ImAdminTokenWithDefaultAdmin(c)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	imErr := o.imApiCaller.ForceOffLine(mctx.WithApiToken(c, adminToken), userID)
+	if _, err := o.adminClient.InvalidateToken(c, &admin.InvalidateTokenReq{UserID: userID}); err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	if imErr != nil {
+		apiresp.GinError(c, imErr)
+		return
+	}
+	apiresp.GinSuccess(c, struct{}{})
+}
+
 func (o *Api) ADLogin(c *gin.Context) {
 	req, err := a2r.ParseRequest[apistruct.ADLoginReq](c)
 	if err != nil {
@@ -205,13 +234,31 @@ func (o *Api) ADLogin(c *gin.Context) {
 		apiresp.GinError(c, err)
 		return
 	}
-	// Use the standard Login RPC with AD username as the account identifier.
-	// The RPC handler will detect AD credential type and authenticate via LDAP.
+	username, password, platform, deviceID := req.Username, req.Password, req.Platform, req.DeviceID
+	if req.Credential != nil {
+		if o.adLoginCrypto == nil || req.Username != "" || req.Password != "" || req.Platform != 0 || req.DeviceID != "" {
+			apiresp.GinError(c, errInvalidADLoginCredential)
+			return
+		}
+		payload, err := o.adLoginCrypto.DecryptAndConsume(c, ADLoginCredentialEnvelope{
+			Version: req.Credential.Version, KeyID: req.Credential.KeyID, ChallengeID: req.Credential.ChallengeID,
+			Nonce: req.Credential.Nonce, Ciphertext: req.Credential.Ciphertext,
+		})
+		if err != nil {
+			apiresp.GinError(c, errInvalidADLoginCredential)
+			return
+		}
+		username, password, platform, deviceID = payload.Username, payload.Password, payload.Platform, payload.DeviceID
+	} else if username == "" || password == "" {
+		apiresp.GinError(c, errInvalidADLoginCredential)
+		return
+	}
+	// The RPC handler detects AD credentials and authenticates through LDAP.
 	loginReq := &chatpb.LoginReq{
-		Account:  req.Username,
-		Password: req.Password,
-		Platform: req.Platform,
-		DeviceID: req.DeviceID,
+		Account:  username,
+		Password: password,
+		Platform: platform,
+		DeviceID: deviceID,
 		Ip:       ip,
 	}
 	resp, err := o.chatClient.Login(c, loginReq)
@@ -228,10 +275,10 @@ func (o *Api) ADLogin(c *gin.Context) {
 
 	// Try to obtain the IM token first. If the user hasn't been registered
 	// in OpenIM yet (e.g. first AD login), register them and retry.
-	imToken, err := o.imApiCaller.GetUserToken(apiCtx, resp.UserID, req.Platform)
+	imToken, err := o.imApiCaller.GetUserToken(apiCtx, resp.UserID, platform)
 	if errors.Is(err, errs.ErrRecordNotFound) {
 		// Query the nickname that was stored in chat DB during AD auto-creation.
-		nickname := req.Username
+		nickname := username
 		if fullInfoResp, infoErr := o.chatClient.FindUserFullInfo(c, &chatpb.FindUserFullInfoReq{
 			UserIDs: []string{resp.UserID},
 		}); infoErr == nil && len(fullInfoResp.Users) > 0 {
@@ -248,7 +295,7 @@ func (o *Api) ADLogin(c *gin.Context) {
 			apiresp.GinError(c, regErr)
 			return
 		}
-		imToken, err = o.imApiCaller.GetUserToken(apiCtx, resp.UserID, req.Platform)
+		imToken, err = o.imApiCaller.GetUserToken(apiCtx, resp.UserID, platform)
 	}
 	if err != nil {
 		apiresp.GinError(c, err)
@@ -258,6 +305,21 @@ func (o *Api) ADLogin(c *gin.Context) {
 		ImToken:   imToken,
 		UserID:    resp.UserID,
 		ChatToken: resp.ChatToken,
+	})
+}
+
+func (o *Api) ADLoginChallenge(c *gin.Context) {
+	if o.adLoginCrypto == nil {
+		apiresp.GinError(c, errInvalidADLoginCredential)
+		return
+	}
+	challenge, err := o.adLoginCrypto.IssueChallenge(c)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	apiresp.GinSuccess(c, &apistruct.ADLoginChallengeResp{
+		ChallengeID: challenge.ID, ChallengeNonce: challenge.Nonce, KeyID: challenge.KeyID, ExpiresAt: challenge.ExpiresAt.Unix(),
 	})
 }
 
@@ -347,7 +409,7 @@ func (o *Api) SearchUserFullInfo(c *gin.Context) {
 		apiresp.GinError(c, errs.ErrArgs.WrapMsg(err.Error()))
 		return
 	}
-	
+
 	// Parse JSON manually
 	var req struct {
 		Keyword       string                   `json:"keyword"`
@@ -361,7 +423,7 @@ func (o *Api) SearchUserFullInfo(c *gin.Context) {
 		return
 	}
 	log.ZInfo(c, "SearchUserFullInfo API received request", "keyword", req.Keyword, "registerTypes", req.RegisterTypes, "normal", req.Normal)
-	
+
 	// Convert to protobuf request (registerTypes passed directly in the proto,
 	// consistent with Keyword/Pagination/Genders/Normal — avoids unreliable
 	// gRPC metadata propagation that previously dropped the value)

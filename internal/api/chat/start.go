@@ -21,6 +21,7 @@ import (
 	adminclient "github.com/openimsdk/chat/pkg/protocol/admin"
 	chatclient "github.com/openimsdk/chat/pkg/protocol/chat"
 	"github.com/openimsdk/tools/db/mongoutil"
+	"github.com/openimsdk/tools/db/redisutil"
 	"github.com/openimsdk/tools/discovery/etcd"
 	"github.com/openimsdk/tools/errs"
 	"github.com/openimsdk/tools/log"
@@ -68,6 +69,14 @@ func Start(ctx context.Context, index int, cfg *Config) error {
 	chatClient := chatclient.NewChatClient(chatConn)
 	adminClient := adminclient.NewAdminClient(adminConn)
 	im := imapi.New(cfg.Share.OpenIM.ApiURL, cfg.Share.OpenIM.Secret, cfg.Share.OpenIM.AdminUserID)
+	rdb, err := redisutil.NewRedisClient(ctx, cfg.Redis.Build())
+	if err != nil {
+		return err
+	}
+	adLoginCrypto, err := NewADLoginCrypto(cfg.ApiConfig.ADLoginCrypto, rdb)
+	if err != nil {
+		return err
+	}
 	if cfg.Mongodb.Database != "" || cfg.Mongodb.URI != "" || len(cfg.Mongodb.Address) > 0 {
 		mgocli, err := mongoutil.NewMongoDB(ctx, cfg.Mongodb.Build())
 		if err != nil {
@@ -98,7 +107,7 @@ func Start(ctx context.Context, index int, cfg *Config) error {
 		ProxyHeader:     cfg.Share.ProxyHeader,
 		ChatAdminUserID: cfg.Share.ChatAdmin[0],
 	}
-	adminApi := New(chatClient, adminClient, im, &base)
+	adminApi := New(chatClient, adminClient, im, &base, adLoginCrypto)
 	digitaltwin.StartUnreadTimeoutTaskWorker(ctx, 5*time.Second, 20, func(ctx context.Context, task digitaltwin.UnreadTimeoutTask) error {
 		return adminApi.executeUnreadTimeoutDigitalTwin(ctx, task.ChannelKey, task.Request)
 	})
@@ -160,11 +169,13 @@ func Start(ctx context.Context, index int, cfg *Config) error {
 
 func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	account := router.Group("/account")
-	account.POST("/code/send", chat.SendVerifyCode)                      // Send verification code
-	account.POST("/code/verify", chat.VerifyCode)                        // Verify the verification code
-	account.POST("/register", mw.CheckAdminOrNil, chat.RegisterUser)     // Register
-	account.POST("/login", chat.Login)                                   // Login
-	account.POST("/login/ad", chat.ADLogin)                              // Microsoft AD login
+	account.POST("/code/send", chat.SendVerifyCode)                  // Send verification code
+	account.POST("/code/verify", chat.VerifyCode)                    // Verify the verification code
+	account.POST("/register", mw.CheckAdminOrNil, chat.RegisterUser) // Register
+	account.POST("/login", chat.Login)                               // Login
+	account.GET("/login/ad/challenge", chat.ADLoginChallenge)        // Encrypted AD login challenge
+	account.POST("/login/ad", chat.ADLogin)                          // Microsoft AD login
+	account.POST("/logout", mw.CheckToken, chat.Logout)
 	account.POST("/password/reset", chat.ResetPassword)                  // Forgot password
 	account.POST("/password/change", mw.CheckToken, chat.ChangePassword) // Change password
 

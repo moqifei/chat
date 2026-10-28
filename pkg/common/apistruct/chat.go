@@ -29,10 +29,26 @@ type LoginResp struct {
 }
 
 type ADLoginReq struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	Platform int32  `json:"platform"`
-	DeviceID string `json:"deviceID"`
+	Username   string                   `json:"username"`
+	Password   string                   `json:"password"`
+	Platform   int32                    `json:"platform"`
+	DeviceID   string                   `json:"deviceID"`
+	Credential *ADLoginCredentialV1Req `json:"credential"`
+}
+
+type ADLoginCredentialV1Req struct {
+	Version     string `json:"version"`
+	KeyID       string `json:"keyID"`
+	ChallengeID string `json:"challengeID"`
+	Nonce       string `json:"nonce"`
+	Ciphertext  string `json:"ciphertext"`
+}
+
+type ADLoginChallengeResp struct {
+	ChallengeID    string `json:"challengeID"`
+	ChallengeNonce string `json:"challengeNonce"`
+	KeyID          string `json:"keyID"`
+	ExpiresAt      int64  `json:"expiresAt"`
 }
 
 type UpdateUserInfoResp struct{}

@@ -43,6 +43,13 @@ type API struct {
 		ListenIP string `mapstructure:"listenIP"`
 		Ports    []int  `mapstructure:"ports"`
 	} `mapstructure:"api"`
+	ADLoginCrypto ADLoginCrypto `mapstructure:"adLoginCrypto"`
+}
+
+type ADLoginCrypto struct {
+	KeyID               string `mapstructure:"keyID"`
+	SharedKey           string `mapstructure:"sharedKey"`
+	ChallengeTTLSeconds int    `mapstructure:"challengeTTLSeconds"`
 }
 
 type APIBot struct {

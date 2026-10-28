@@ -1,5 +1,7 @@
 # Secure AD Login and Global Logout Implementation Plan
 
+> **Superseded for AD login on 2026-10-28:** The implemented protocol uses the same configured AES-256-GCM key in the Chat API and desktop client, with the existing one-time challenge retained to prevent replay. RSA key files, public-key injection, and Kubernetes Secret mounting steps in this historical plan do not apply to the current implementation.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Encrypt new desktop AD-login credentials with replay protection while preserving legacy clients, and revoke every chat and IM session when a user logs out.

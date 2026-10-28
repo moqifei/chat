@@ -1,5 +1,7 @@
 # Secure AD Login and Global Logout Design
 
+> **Superseded for AD login on 2026-10-28:** The approved deployment uses an AES-256-GCM shared-key configuration instead of the RSA key-pair design below. The 60-second one-time challenge and global logout design remain in force. The shared key is compiled into the desktop client and stored in the Chat API configuration, so this provides password obfuscation against ordinary packet capture only; it does not protect against client reverse engineering.
+
 ## Goal
 
 Prevent the current desktop client from submitting an AD password as plaintext over the login request while preserving the existing login endpoint for old client versions. Add a server-confirmed logout flow that invalidates every chat and IM session for the logged-in user.
