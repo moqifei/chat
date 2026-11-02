@@ -119,7 +119,7 @@ type chatSvr struct {
 	ADClient        *ad.Client
 	ADConfig        config.AD
 	DigitalEmployeeConfig  config.DigitalEmployee
-	digitalEmployeeSyncMu  sync.Mutex
+	organizationSyncMu     sync.Mutex
 	IMCaller        imapi.CallerInterface
 }
 

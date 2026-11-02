@@ -185,9 +185,7 @@ func (o *chatSvr) startDigitalEmployeeSyncScheduler(ctx context.Context) {
 	log.ZInfo(ctx, "digital employee sync scheduler starting", "cron", cfg.Cron)
 	go func() {
 		time.Sleep(10 * time.Second)
-		if err := o.runDigitalEmployeeSync(syncBackgroundCtx()); err != nil {
-			log.ZError(syncBackgroundCtx(), "digital employee initial sync failed", err)
-		}
+		o.queueOrganizationSync(organizationSyncScope{DigitalEmployee: true})
 	}()
 	go func() {
 		for {
@@ -195,17 +193,12 @@ func (o *chatSvr) startDigitalEmployeeSyncScheduler(ctx context.Context) {
 			delay := time.Until(next)
 			log.ZInfo(syncBackgroundCtx(), "digital employee sync next scheduled", "next", next.Format(time.RFC3339), "delay", delay)
 			time.Sleep(delay)
-			if err := o.runDigitalEmployeeSync(syncBackgroundCtx()); err != nil {
-				log.ZError(syncBackgroundCtx(), "digital employee scheduled sync failed", err)
-			}
+			o.queueOrganizationSync(organizationSyncScope{DigitalEmployee: true})
 		}
 	}()
 }
 
 func (o *chatSvr) runDigitalEmployeeSync(ctx context.Context) error {
-	o.digitalEmployeeSyncMu.Lock()
-	defer o.digitalEmployeeSyncMu.Unlock()
-
 	cfg := digitalEmployeeConfigDefaults(o.DigitalEmployeeConfig)
 	if !cfg.Enable {
 		return nil

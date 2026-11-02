@@ -66,7 +66,7 @@ func (o *chatSvr) startADSyncScheduler(ctx context.Context) {
 	// Run the first sync in a separate goroutine (non-blocking).
 	go func() {
 		time.Sleep(5 * time.Second) // Brief delay to let other services initialize.
-		o.runADSync(syncBackgroundCtx())
+		o.queueOrganizationSync(organizationSyncScope{AD: true})
 	}()
 
 	// Schedule daily runs.
@@ -76,7 +76,7 @@ func (o *chatSvr) startADSyncScheduler(ctx context.Context) {
 			delay := time.Until(next)
 			log.ZInfo(syncBackgroundCtx(), "AD org sync next scheduled", "next", next.Format(time.RFC3339), "delay", delay)
 			time.Sleep(delay)
-			o.runADSync(syncBackgroundCtx())
+			o.queueOrganizationSync(organizationSyncScope{AD: true})
 		}
 	}()
 }
@@ -92,7 +92,7 @@ func syncBackgroundCtx() context.Context {
 // 2. Discover users → map to departments, extract nicknames.
 // 3. Batch upsert to MongoDB.
 // 4. Sync registered users' info to IM server.
-func (o *chatSvr) runADSync(ctx context.Context) {
+func (o *chatSvr) runADSync(ctx context.Context) error {
 	log.ZInfo(ctx, "AD org sync: starting full sync")
 
 	startTime := time.Now()
@@ -101,7 +101,7 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 	adDeps, err := o.ADClient.SearchOUs()
 	if err != nil {
 		log.ZError(ctx, "AD org sync: failed to search OUs", err)
-		return
+		return err
 	}
 
 	// Compute department levels based on parent-child relationships.
@@ -148,12 +148,12 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 	}
 	if err := deleteDepartments(ctx); err != nil {
 		log.ZError(ctx, "AD org sync: failed to clear old departments", err)
-		return
+		return err
 	}
 	if len(dbDepts) > 0 {
 		if err := o.Database.GetDepartmentInterface().Create(ctx, dbDepts); err != nil {
 			log.ZError(ctx, "AD org sync: failed to insert departments", err)
-			return
+			return err
 		}
 	}
 	log.ZInfo(ctx, "AD org sync: departments saved", "count", len(dbDepts))
@@ -162,7 +162,7 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 	adUsers, err := o.ADClient.SearchAllUsers()
 	if err != nil {
 		log.ZError(ctx, "AD org sync: failed to search users", err)
-		return
+		return err
 	}
 
 	log.ZInfo(ctx, "AD org sync: users discovered", "count", len(adUsers))
@@ -235,12 +235,12 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 	}
 	if err := deleteMembers(ctx); err != nil {
 		log.ZError(ctx, "AD org sync: failed to clear old members", err)
-		return
+		return err
 	}
 	if len(dbMembers) > 0 {
 		if err := o.Database.GetDepartmentMemberInterface().Create(ctx, dbMembers); err != nil {
 			log.ZError(ctx, "AD org sync: failed to insert members", err)
-			return
+			return err
 		}
 	}
 	log.ZInfo(ctx, "AD org sync: members saved", "count", len(dbMembers))
@@ -255,6 +255,7 @@ func (o *chatSvr) runADSync(ctx context.Context) {
 
 	elapsed := time.Since(startTime)
 	log.ZInfo(ctx, "AD org sync: completed", "departments", len(dbDepts), "members", len(dbMembers), "duration", elapsed.String())
+	return nil
 }
 
 // syncADMembersToIMServer updates IM server with synced user info.

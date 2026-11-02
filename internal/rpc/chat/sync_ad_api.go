@@ -22,7 +22,6 @@ import (
 	ad "github.com/openimsdk/chat/pkg/common/ad"
 	chatdb "github.com/openimsdk/chat/pkg/common/db/table/chat"
 	"github.com/openimsdk/chat/pkg/protocol/chat"
-	"github.com/openimsdk/protocol/sdkws"
 	"github.com/openimsdk/tools/log"
 )
 
@@ -163,7 +162,7 @@ func (o *chatSvr) SearchADMembers(ctx context.Context, req *chat.SearchADMembers
 	return resp, nil
 }
 
-// SyncADOrganization triggers a manual AD organization sync and returns the sync result.
+// SyncADOrganization starts a manual organization sync in the background.
 //
 // How to call:
 //
@@ -174,34 +173,10 @@ func (o *chatSvr) SearchADMembers(ctx context.Context, req *chat.SearchADMembers
 //	client := chat.NewChatClient(conn)
 //	resp, err := client.SyncADOrganization(ctx, &chat.SyncADOrganizationReq{})
 func (o *chatSvr) SyncADOrganization(ctx context.Context, req *chat.SyncADOrganizationReq) (*chat.SyncADOrganizationResp, error) {
-	o.runADSync(ctx)
-	if o.DigitalEmployeeConfig.Enable {
-		if err := o.runDigitalEmployeeSync(ctx); err != nil {
-			return nil, err
-		}
-	}
-
-	departments, err := o.Database.GetDepartmentInterface().FindAll(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Query total member count with minimal pagination.
-	total, _, memberErr := o.Database.GetDepartmentMemberInterface().Search(
-		ctx, "", "", &sdkws.RequestPagination{PageNumber: 1, ShowNumber: 1})
-	if memberErr != nil {
-		return nil, memberErr
-	}
-
 	now := time.Now().Unix()
-	log.ZInfo(ctx, "SyncADOrganization manual trigger completed",
-		"departmentCount", len(departments), "memberCount", total, "syncTime", now)
-
-	return &chat.SyncADOrganizationResp{
-		DepartmentCount: int32(len(departments)),
-		MemberCount:     int32(total),
-		SyncTime:        now,
-	}, nil
+	o.queueOrganizationSync(organizationSyncScope{AD: true, DigitalEmployee: true})
+	log.ZInfo(ctx, "SyncADOrganization manual trigger accepted", "syncTime", now)
+	return &chat.SyncADOrganizationResp{SyncTime: now}, nil
 }
 
 // ────────── helper ──────────
