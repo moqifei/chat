@@ -51,9 +51,9 @@ func New(chatClient chatpb.ChatClient, adminClient admin.AdminClient, imApiCalle
 
 type Api struct {
 	*util.Api
-	chatClient  chatpb.ChatClient
-	adminClient admin.AdminClient
-	imApiCaller imapi.CallerInterface
+	chatClient    chatpb.ChatClient
+	adminClient   admin.AdminClient
+	imApiCaller   imapi.CallerInterface
 	adLoginCrypto *ADLoginCrypto
 }
 
@@ -533,6 +533,10 @@ func (o *Api) GetADDepartmentList(c *gin.Context) {
 
 func (o *Api) GetADDepartmentMembers(c *gin.Context) {
 	a2r.Call(c, chatpb.ChatClient.GetADDepartmentMembers, o.chatClient)
+}
+
+func (o *Api) GetADMemberByUserID(c *gin.Context) {
+	a2r.Call(c, chatpb.ChatClient.GetADMemberByUserID, o.chatClient)
 }
 
 func (o *Api) SearchADMembers(c *gin.Context) {

@@ -226,6 +226,7 @@ func SetChatRoute(router gin.IRouter, chat *Api, mw *chatmw.MW) {
 	ad := router.Group("/ad", mw.CheckToken)
 	ad.POST("/department/list", chat.GetADDepartmentList)
 	ad.POST("/department/members", chat.GetADDepartmentMembers)
+	ad.POST("/member/get", chat.GetADMemberByUserID)
 	ad.POST("/member/search", chat.SearchADMembers)
 	ad.POST("/sync", chat.SyncADOrganization)
 }

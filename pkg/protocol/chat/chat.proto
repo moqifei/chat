@@ -357,6 +357,13 @@ message SyncADOrganizationResp {
   int64 syncTime = 3;
 }
 
+message GetADMemberByUserIDReq {
+  string userID = 1;
+}
+
+message GetADMemberByUserIDResp {
+  ADDepartmentMemberInfo member = 1;
+}
 
 service chat {
   // Edit personal information - called by the user or an administrator
@@ -404,4 +411,6 @@ service chat {
   rpc SearchADMembers(SearchADMembersReq) returns (SearchADMembersResp);
   // Trigger a manual AD organization sync
   rpc SyncADOrganization(SyncADOrganizationReq) returns (SyncADOrganizationResp);
+  // Get one synced AD member by OpenIM user ID
+  rpc GetADMemberByUserID(GetADMemberByUserIDReq) returns (GetADMemberByUserIDResp);
 }

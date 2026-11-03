@@ -145,6 +145,20 @@ func (o *chatSvr) GetADDepartmentMembers(ctx context.Context, req *chat.GetADDep
 	return resp, nil
 }
 
+// GetADMemberByUserID returns the synced AD member for one OpenIM user.
+func (o *chatSvr) GetADMemberByUserID(ctx context.Context, req *chat.GetADMemberByUserIDReq) (*chat.GetADMemberByUserIDResp, error) {
+	members, err := o.Database.GetDepartmentMemberInterface().FindByUserID(ctx, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	for _, member := range members {
+		if isAllowedDepartmentID(member.DepartmentID) {
+			return &chat.GetADMemberByUserIDResp{Member: departmentMemberToProto(member)}, nil
+		}
+	}
+	return &chat.GetADMemberByUserIDResp{}, nil
+}
+
 // SearchADMembers searches organization members by keyword, optionally filtered
 // by department. Results are filtered to only include members under allowed OUs.
 func (o *chatSvr) SearchADMembers(ctx context.Context, req *chat.SearchADMembersReq) (*chat.SearchADMembersResp, error) {

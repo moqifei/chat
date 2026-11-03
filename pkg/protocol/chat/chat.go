@@ -246,6 +246,13 @@ func (x *GetTokenForVideoMeetingReq) Check() error {
 	return nil
 }
 
+func (x *GetADMemberByUserIDReq) Check() error {
+	if x.UserID == "" {
+		return errs.ErrArgs.WrapMsg("userID is empty")
+	}
+	return nil
+}
+
 func EmailCheck(email string) error {
 	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 	if err := regexMatch(pattern, email); err != nil {
